@@ -1,0 +1,36 @@
+import { z } from "zod";
+
+export const changePasswordSchema =
+  z
+    .object({
+      currentPassword: z
+        .string()
+        .min(
+          8,
+          "Current password is required."
+        ),
+
+      newPassword: z
+        .string()
+        .min(
+          8,
+          "Password must be at least 8 characters."
+        ),
+
+      confirmPassword: z.string(),
+    })
+    .refine(
+      (values) =>
+        values.newPassword ===
+        values.confirmPassword,
+      {
+        path: ["confirmPassword"],
+        message:
+          "Passwords do not match.",
+      }
+    );
+
+export type ChangePasswordInput =
+  z.infer<
+    typeof changePasswordSchema
+  >;
