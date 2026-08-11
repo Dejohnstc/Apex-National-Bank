@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth/auth";
 import { redirect } from "next/navigation";
 
+import dbConnect from "@/lib/db/connect";
+import { User } from "@/models/user/User";
+
 import { getLoginHistory } from "@/services/security/getLoginHistory";
 import { getTrustedDevices } from "@/services/security/getTrustedDevices";
 import { getSecurityAlerts } from "@/services/security/getSecurityAlerts";
@@ -20,6 +23,22 @@ export default async function SecurityPage() {
     redirect("/login");
   }
 
+  await dbConnect();
+
+  /*
+   * Get the real security information
+   * stored on the authenticated user's account.
+   */
+  const user = await User.findById(session.user.id)
+    .select(
+      "twoFactorEnabled lastPasswordChanged"
+    )
+    .lean();
+
+  if (!user) {
+    redirect("/login");
+  }
+
   const [
     history,
     devices,
@@ -32,16 +51,41 @@ export default async function SecurityPage() {
     getActiveSessions(session.user.id),
   ]);
 
+  /*
+   * Format the password date for display.
+   *
+   * Using an explicit US locale keeps the
+   * server-rendered value deterministic.
+   */
+  const lastPasswordChanged =
+    user.lastPasswordChanged
+      ? new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }).format(user.lastPasswordChanged)
+      : null;
+
   return (
     <div className="space-y-6">
+
+      {/* Security Overview */}
+
       <SecurityOverview
-        twoFactorEnabled={false}
+        twoFactorEnabled={
+          Boolean(user.twoFactorEnabled)
+        }
         activeSessions={sessions.length}
         trustedDevices={devices.length}
-        lastPasswordChanged={null}
+        lastPasswordChanged={
+          lastPasswordChanged
+        }
       />
 
+      {/* Password + Sessions */}
+
       <div className="grid gap-6 lg:grid-cols-2">
+
         <PasswordCard />
 
         <ActiveSessionsCard
@@ -53,10 +97,19 @@ export default async function SecurityPage() {
             ip: session.ip,
             location: session.location,
             lastActive: session.lastActive,
-            current: false, // we'll detect the current session later
+
+            /*
+             * Current-session detection will be
+             * added once we wire the session/device
+             * identifier to the authentication session.
+             */
+            current: false,
           }))}
         />
+
       </div>
+
+      {/* Trusted Devices */}
 
       <TrustedDevicesCard
         devices={devices.map((device) => ({
@@ -68,6 +121,8 @@ export default async function SecurityPage() {
           current: false,
         }))}
       />
+
+      {/* Login History */}
 
       <LoginHistoryCard
         history={history.map((login) => ({
@@ -82,6 +137,8 @@ export default async function SecurityPage() {
         }))}
       />
 
+      {/* Security Alerts */}
+
       <SecurityAlertsCard
         alerts={alerts.map((alert) => ({
           id: alert._id.toString(),
@@ -92,6 +149,7 @@ export default async function SecurityPage() {
           createdAt: alert.createdAt,
         }))}
       />
+
     </div>
   );
 }

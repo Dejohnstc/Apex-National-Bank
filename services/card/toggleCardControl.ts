@@ -2,22 +2,35 @@ import connectDB from "@/lib/db/connect";
 
 import Card from "@/models/Card";
 
-type Control =
+type CardControl =
   | "atmEnabled"
   | "onlineEnabled"
-  | "internationalEnabled"
-  | "contactlessEnabled";
+  | "contactlessEnabled"
+  | "internationalEnabled";
 
 export async function toggleCardControl(
+  userId: string,
   cardId: string,
-  control: Control,
+  control: CardControl,
   enabled: boolean
 ) {
   await connectDB();
 
-  await Card.findByIdAndUpdate(cardId, {
-    [control]: enabled,
+  const card = await Card.findOne({
+    _id: cardId,
+    userId,
   });
+
+  if (!card) {
+    return {
+      success: false,
+      message: "Card not found.",
+    };
+  }
+
+  card[control] = enabled;
+
+  await card.save();
 
   return {
     success: true,

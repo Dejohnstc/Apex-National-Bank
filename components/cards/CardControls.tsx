@@ -1,10 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -21,9 +27,17 @@ interface Props {
   card: CardDto;
 }
 
+type CardControl =
+  | "atmEnabled"
+  | "onlineEnabled"
+  | "contactlessEnabled"
+  | "internationalEnabled";
+
 export default function CardControls({
   card,
 }: Props) {
+  const router = useRouter();
+
   const [isPending, startTransition] =
     useTransition();
 
@@ -42,13 +56,11 @@ export default function CardControls({
     });
 
   function updateControl(
-    control:
-      | "atmEnabled"
-      | "onlineEnabled"
-      | "contactlessEnabled"
-      | "internationalEnabled",
+    control: CardControl,
     value: boolean
   ) {
+    const previousValue = controls[control];
+
     setControls((previous) => ({
       ...previous,
       [control]: value,
@@ -63,37 +75,70 @@ export default function CardControls({
         );
 
       if (!result.success) {
+        // Roll back the switch if the server update fails.
+        setControls((previous) => ({
+          ...previous,
+          [control]: previousValue,
+        }));
+
         toast.error(
-          "Unable to update control."
+          result.message ??
+            "Unable to update control."
         );
+
         return;
       }
 
-      toast.success("Updated");
-      
+      toast.success(
+        value
+          ? "Control enabled."
+          : "Control disabled."
+      );
+
+      router.refresh();
+
       window.dispatchEvent(
-  new Event("refresh-notifications")
-);
+        new Event("refresh-notifications")
+      );
     });
   }
 
   function updateLimit() {
+    const numericLimit = Number(limit);
+
+    if (
+      !Number.isFinite(numericLimit) ||
+      numericLimit <= 0
+    ) {
+      toast.error(
+        "Enter a valid daily spending limit."
+      );
+      return;
+    }
+
     startTransition(async () => {
       const result =
         await updateCardLimitsAction(
           card.id,
-          Number(limit)
+          numericLimit
         );
 
       if (!result.success) {
         toast.error(
-          "Unable to update limit."
+          result.message ??
+            "Unable to update limit."
         );
         return;
       }
 
       toast.success(
         "Daily limit updated."
+      );
+
+      router.refresh();
+
+      window.dispatchEvent(
+        new Event("refresh-notifications")
       );
     });
   }
@@ -102,14 +147,17 @@ export default function CardControls({
     startTransition(async () => {
       const result =
         card.status === "ACTIVE"
-          ? await freezeCardAction(card.id)
+          ? await freezeCardAction(
+              card.id
+            )
           : await unfreezeCardAction(
               card.id
             );
 
       if (!result.success) {
         toast.error(
-          "Operation failed."
+          result.message ??
+            "Operation failed."
         );
         return;
       }
@@ -119,23 +167,47 @@ export default function CardControls({
           ? "Card frozen."
           : "Card activated."
       );
+
+      router.refresh();
+
+      window.dispatchEvent(
+        new Event("refresh-notifications")
+      );
     });
   }
 
   function replaceCard() {
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to replace this card? Your current card details will no longer be valid."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
     startTransition(async () => {
       const result =
-        await replaceCardAction(card.id);
+        await replaceCardAction(
+          card.id
+        );
 
       if (!result.success) {
         toast.error(
-          "Unable to replace card."
+          result.message ??
+            "Unable to replace card."
         );
         return;
       }
 
       toast.success(
         "Replacement card ordered."
+      );
+
+      router.refresh();
+
+      window.dispatchEvent(
+        new Event("refresh-notifications")
       );
     });
   }
@@ -149,7 +221,7 @@ export default function CardControls({
       </CardHeader>
 
       <CardContent className="space-y-6">
-
+        {/* ATM Withdrawals */}
         <div className="flex items-center justify-between">
           <Label>
             ATM Withdrawals
@@ -169,6 +241,7 @@ export default function CardControls({
           />
         </div>
 
+        {/* Online Purchases */}
         <div className="flex items-center justify-between">
           <Label>
             Online Purchases
@@ -188,6 +261,7 @@ export default function CardControls({
           />
         </div>
 
+        {/* Contactless */}
         <div className="flex items-center justify-between">
           <Label>
             Contactless
@@ -207,6 +281,7 @@ export default function CardControls({
           />
         </div>
 
+        {/* International */}
         <div className="flex items-center justify-between">
           <Label>
             International
@@ -226,6 +301,7 @@ export default function CardControls({
           />
         </div>
 
+        {/* Daily Spending Limit */}
         <div className="space-y-2">
           <Label>
             Daily Spending Limit
@@ -233,7 +309,10 @@ export default function CardControls({
 
           <Input
             type="number"
+            min="1"
+            step="0.01"
             value={limit}
+            disabled={isPending}
             onChange={(event) =>
               setLimit(
                 event.target.value
@@ -246,10 +325,13 @@ export default function CardControls({
             onClick={updateLimit}
             className="w-full"
           >
-            Update Limit
+            {isPending
+              ? "Updating..."
+              : "Update Limit"}
           </Button>
         </div>
 
+        {/* Freeze / Unfreeze */}
         <Button
           variant="secondary"
           disabled={isPending}
@@ -261,6 +343,7 @@ export default function CardControls({
             : "Unfreeze Card"}
         </Button>
 
+        {/* Replace Card */}
         <Button
           variant="destructive"
           disabled={isPending}
@@ -269,7 +352,6 @@ export default function CardControls({
         >
           Replace Card
         </Button>
-
       </CardContent>
     </Card>
   );

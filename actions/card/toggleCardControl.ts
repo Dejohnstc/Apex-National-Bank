@@ -2,25 +2,39 @@
 
 import { revalidatePath } from "next/cache";
 
+import { auth } from "@/lib/auth/auth";
 import { toggleCardControl } from "@/services/card/toggleCardControl";
+
+type CardControl =
+  | "atmEnabled"
+  | "onlineEnabled"
+  | "contactlessEnabled"
+  | "internationalEnabled";
 
 export async function toggleCardControlAction(
   cardId: string,
-  control:
-    | "atmEnabled"
-    | "onlineEnabled"
-    | "contactlessEnabled"
-    | "internationalEnabled",
+  control: CardControl,
   enabled: boolean
 ) {
-  const result =
-    await toggleCardControl(
-      cardId,
-      control,
-      enabled
-    );
+  const session = await auth();
 
-  revalidatePath("/dashboard/cards");
+  if (!session?.user?.id) {
+    return {
+      success: false,
+      message: "Unauthorized.",
+    };
+  }
+
+  const result = await toggleCardControl(
+    session.user.id,
+    cardId,
+    control,
+    enabled
+  );
+
+  if (result.success) {
+    revalidatePath("/dashboard/cards");
+  }
 
   return result;
 }
