@@ -49,33 +49,42 @@ export function TransactionSummary({
   ];
 
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
 
         return (
           <div
             key={card.title}
-            className="rounded-2xl border bg-card p-6 shadow-sm"
+            className="rounded-2xl border bg-card p-3 shadow-sm sm:p-5"
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-xs text-muted-foreground sm:text-sm">
                   {card.title}
                 </p>
 
-                <h2 className="mt-2 text-2xl font-bold">
+                <h2
+                  className={`mt-1 break-all font-bold text-slate-900 sm:mt-2 sm:text-2xl ${
+                    card.count
+                      ? "text-xl"
+                      : "text-lg"
+                  }`}
+                >
                   {card.count
                     ? card.value
-                    : new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                      }).format(card.value)}
+                    : new Intl.NumberFormat(
+                        "en-US",
+                        {
+                          style: "currency",
+                          currency: "USD",
+                        }
+                      ).format(card.value)}
                 </h2>
               </div>
 
-              <div className="rounded-xl bg-primary/10 p-3">
-                <Icon className="h-6 w-6 text-primary" />
+              <div className="shrink-0 rounded-xl bg-primary/10 p-2 sm:p-3">
+                <Icon className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
               </div>
             </div>
           </div>

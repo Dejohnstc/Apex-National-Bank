@@ -2,6 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ChevronRight,
+  Mail,
+  ShieldCheck,
+} from "lucide-react";
 
 import RecipientPreview from "./RecipientPreview";
 import TransferReceipt from "./TransferReceipt";
@@ -45,6 +52,9 @@ export default function ZelleTransferForm({
     memo: "",
   });
 
+  const [reviewing, setReviewing] =
+    useState(false);
+
   const [receiptOpen, setReceiptOpen] =
     useState(false);
 
@@ -66,10 +76,22 @@ export default function ZelleTransferForm({
   const selectedAccount = useMemo(
     () =>
       accounts.find(
-        (a) => a.id === form.accountId
+        (account) =>
+          account.id === form.accountId
       ),
     [accounts, form.accountId]
   );
+
+  const amount = Number(form.amount);
+
+  const formattedAmount =
+    amount > 0
+      ? amount.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+        })
+      : "$0.00";
 
   function update<K extends keyof typeof form>(
     key: K,
@@ -81,22 +103,58 @@ export default function ZelleTransferForm({
     }));
   }
 
-  function submit() {
+  function handleReview() {
     setMessage("");
+    setSuccess(false);
+
+    if (!selectedAccount) {
+      setMessage("Select a valid account.");
+      return;
+    }
 
     if (!recipient) {
-      setSuccess(false);
       setMessage("Select a valid recipient.");
       return;
     }
 
-    const amount = Number(form.amount);
+    if (!form.recipientEmail.trim()) {
+      setMessage("Enter a recipient email.");
+      return;
+    }
 
     if (!amount || amount <= 0) {
-      setSuccess(false);
       setMessage("Enter a valid amount.");
       return;
     }
+
+    if (amount > selectedAccount.balance) {
+      setMessage("Insufficient funds.");
+      return;
+    }
+
+    setReviewing(true);
+  }
+
+  function handleBack() {
+    if (pending) {
+      return;
+    }
+
+    setReviewing(false);
+    setMessage("");
+    setSuccess(false);
+  }
+
+  function handleConfirm() {
+    if (!recipient || !selectedAccount) {
+      setMessage(
+        "The transfer information is incomplete."
+      );
+      return;
+    }
+
+    setMessage("");
+    setSuccess(false);
 
     startTransition(async () => {
       const result =
@@ -111,15 +169,11 @@ export default function ZelleTransferForm({
       if (!result.success) {
         setSuccess(false);
         setMessage(
-          result.message ?? "Transfer failed."
+          result.message ??
+            "Transfer failed."
         );
         return;
       }
-
-      const account =
-        accounts.find(
-          (a) => a.id === form.accountId
-        );
 
       setReceipt({
         amount,
@@ -131,15 +185,16 @@ export default function ZelleTransferForm({
           recipient.email,
 
         accountName:
-          account?.accountName ??
-          "Checking Account",
+          selectedAccount.accountName,
 
         memo: form.memo,
 
-       reference:
-  result.reference ??
-  `ZL-${Date.now()}`,
+        reference:
+          result.reference ??
+          `ZL-${Date.now()}`,
       });
+
+      setReviewing(false);
 
       setReceiptOpen(true);
 
@@ -158,6 +213,252 @@ export default function ZelleTransferForm({
       router.refresh();
     });
   }
+
+  /*
+   * ============================
+   * REVIEW SCREEN
+   * ============================
+   */
+
+  if (reviewing) {
+    return (
+      <>
+        <div className="rounded-2xl border bg-white shadow-sm">
+
+          {/* Header */}
+
+          <div className="border-b px-5 py-5 sm:px-6">
+            <button
+              type="button"
+              onClick={handleBack}
+              disabled={pending}
+              className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900 disabled:opacity-50"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Edit Transfer
+            </button>
+
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-emerald-100 p-3">
+                <CheckCircle2 className="h-6 w-6 text-emerald-700" />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Review Zelle Transfer
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Please review the details before
+                  sending your money.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Transfer Details */}
+
+          <div className="space-y-5 p-5 sm:p-6">
+
+            {/* From */}
+
+            <div className="rounded-2xl border bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                From Account
+              </p>
+
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">
+                    {selectedAccount?.accountName}
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    ••••{selectedAccount?.accountNumber.slice(-4)}
+                  </p>
+                </div>
+
+                <p className="shrink-0 text-sm font-semibold text-slate-700">
+                  {selectedAccount?.balance.toLocaleString(
+                    "en-US",
+                    {
+                      style: "currency",
+                      currency: "USD",
+                    }
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Recipient */}
+
+            <div className="rounded-2xl border bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Recipient
+              </p>
+
+              <div className="mt-3 flex items-center gap-3">
+                <div className="rounded-xl bg-white p-2.5 shadow-sm">
+                  <Mail className="h-5 w-5 text-slate-600" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">
+                    {recipient?.fullName}
+                  </p>
+
+                  <p className="truncate text-sm text-slate-500">
+                    {recipient?.email}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Amount */}
+
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+                Transfer Amount
+              </p>
+
+              <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+                {formattedAmount}
+              </p>
+            </div>
+
+            {/* Memo */}
+
+            {form.memo.trim() && (
+              <div className="rounded-2xl border p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                  Memo
+                </p>
+
+                <p className="mt-2 text-sm text-slate-700">
+                  {form.memo}
+                </p>
+              </div>
+            )}
+
+            {/* Fee / Total */}
+
+            <div className="space-y-3 rounded-2xl border p-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">
+                  Transfer amount
+                </span>
+
+                <span className="font-semibold text-slate-900">
+                  {formattedAmount}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-500">
+                  Fee
+                </span>
+
+                <span className="font-semibold text-emerald-600">
+                  $0.00
+                </span>
+              </div>
+
+              <div className="border-t pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-900">
+                    Total
+                  </span>
+
+                  <span className="text-xl font-bold text-slate-900">
+                    {formattedAmount}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Security Notice */}
+
+            <div className="flex items-start gap-3 rounded-2xl bg-slate-50 p-4">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+
+              <p className="text-xs leading-5 text-slate-500">
+                Your transfer will be securely
+                validated before the money is
+                sent. Make sure the recipient
+                information and amount are correct.
+              </p>
+            </div>
+
+            {/* Error */}
+
+            {message && (
+              <div className="rounded-lg bg-red-100 p-3 text-sm text-red-700">
+                {message}
+              </div>
+            )}
+
+            {/* Actions */}
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={pending}
+                className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={pending}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pending
+                  ? "Sending..."
+                  : "Confirm & Send"}
+
+                {!pending && (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+
+        <TransferReceipt
+          open={receiptOpen}
+          onClose={() =>
+            setReceiptOpen(false)
+          }
+          amount={receipt.amount}
+          recipientName={
+            receipt.recipientName
+          }
+          recipientEmail={
+            receipt.recipientEmail
+          }
+          accountName={
+            receipt.accountName
+          }
+          memo={receipt.memo}
+          reference={
+            receipt.reference
+          }
+        />
+      </>
+    );
+  }
+
+  /*
+   * ============================
+   * SEND FORM
+   * ============================
+   */
 
   return (
     <>
@@ -281,13 +582,13 @@ export default function ZelleTransferForm({
         )}
 
         <button
+          type="button"
           disabled={pending}
-          onClick={submit}
-          className="w-full rounded-lg bg-black py-3 font-medium text-white transition hover:bg-black/90 disabled:opacity-50"
+          onClick={handleReview}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-black py-3 font-medium text-white transition hover:bg-black/90 disabled:opacity-50"
         >
-          {pending
-            ? "Sending..."
-            : "Send Money"}
+          Review Transfer
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
