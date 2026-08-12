@@ -1,9 +1,8 @@
 "use server";
 
 import { auth } from "@/lib/auth/auth";
-import dbConnect from "@/lib/db/connect";
 
-import Notification from "@/models/notification/Notification";
+import { markAsRead } from "@/services/notification/markAsRead";
 
 export async function markNotificationRead(
   notificationId: string
@@ -11,18 +10,14 @@ export async function markNotificationRead(
   const session = await auth();
 
   if (!session?.user?.id) {
-    return;
+    return {
+      success: false,
+      message: "Unauthorized.",
+    };
   }
 
-  await dbConnect();
-
-  await Notification.findOneAndUpdate(
-    {
-      _id: notificationId,
-      user: session.user.id,
-    },
-    {
-      read: true,
-    }
+  return markAsRead(
+    session.user.id,
+    notificationId
   );
 }

@@ -26,12 +26,10 @@ import type { Account } from "@/types";
 
 interface TransferFormProps {
   accounts: Account[];
-  userId: string;
 }
 
 export function TransferForm({
   accounts,
-  userId,
 }: TransferFormProps) {
   const [isPending, startTransition] =
     useTransition();
@@ -100,15 +98,12 @@ export function TransferForm({
     startTransition(async () => {
       try {
         const result =
-          await createTransferAction(
-            {
-              fromAccountId,
-              toAccountId,
-              amount: Number(amount),
-              description,
-            },
-            userId
-          );
+         await createTransferAction({
+  fromAccountId,
+  toAccountId,
+  amount: Number(amount),
+  description,
+});
 
         if (!result.success) {
           toast.error(result.message);

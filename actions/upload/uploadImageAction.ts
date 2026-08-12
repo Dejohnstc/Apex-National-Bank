@@ -13,8 +13,7 @@ export async function uploadImageAction(
     throw new Error("Unauthorized.");
   }
 
-  const file =
-    formData.get("file");
+  const file = formData.get("file");
 
   if (!(file instanceof File)) {
     throw new Error(
@@ -22,12 +21,29 @@ export async function uploadImageAction(
     );
   }
 
-  const folder =
-    (formData.get("folder") as string) ??
-    "apex-bank";
+  if (!file.type.startsWith("image/")) {
+    throw new Error(
+      "Only image files are allowed."
+    );
+  }
 
+  const maxSize =
+    10 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    throw new Error(
+      "Image must be 10MB or smaller."
+    );
+  }
+
+  /*
+   * Do not accept the folder from the client.
+   *
+   * Mobile check images always go into the
+   * dedicated Cloudinary folder.
+   */
   return uploadImage(
     file,
-    folder
+    "mobile-checks"
   );
 }

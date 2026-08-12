@@ -22,10 +22,28 @@ function formatCurrency(
   amount: number,
   currency: string
 ) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
 }
 
 export default function StatementTable({
@@ -34,7 +52,8 @@ export default function StatementTable({
 }: StatementTableProps) {
   if (loading) {
     return (
-      <div className="rounded-lg border p-10 text-center text-muted-foreground">
+      <div className="rounded-lg border bg-card p-10 text-center text-muted-foreground">
+        <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
         Loading statements...
       </div>
     );
@@ -42,45 +61,68 @@ export default function StatementTable({
 
   if (statements.length === 0) {
     return (
-      <div className="rounded-lg border p-10 text-center text-muted-foreground">
-        No statements found.
+      <div className="rounded-lg border bg-card p-10 text-center">
+        <p className="font-medium text-foreground">
+          No statements found.
+        </p>
+
+        <p className="mt-1 text-sm text-muted-foreground">
+          Try changing your search or date filters.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border overflow-x-auto">
+    <div className="overflow-x-auto rounded-lg border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Date</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Category</TableHead>
+
+            <TableHead>
+              Description
+            </TableHead>
+
+            <TableHead>
+              Category
+            </TableHead>
+
             <TableHead className="text-right">
               Debit
             </TableHead>
+
             <TableHead className="text-right">
               Credit
             </TableHead>
+
             <TableHead className="text-right">
               Fee
             </TableHead>
+
             <TableHead className="text-right">
               Balance
             </TableHead>
-            <TableHead>Status</TableHead>
+
+            <TableHead>
+              Status
+            </TableHead>
           </TableRow>
         </TableHeader>
 
         <TableBody>
           {statements.map((statement) => (
-            <TableRow key={statement._id}>
-              <TableCell>
-                {new Date(
+            <TableRow
+              key={statement._id}
+            >
+              {/* Date */}
+              <TableCell className="whitespace-nowrap">
+                {formatDate(
                   statement.postedAt
-                ).toLocaleDateString()}
+                )}
               </TableCell>
 
+              {/* Description */}
               <TableCell>
                 <div className="space-y-1">
                   <div className="font-medium">
@@ -99,10 +141,12 @@ export default function StatementTable({
                 </div>
               </TableCell>
 
+              {/* Category */}
               <TableCell>
                 {statement.category || "-"}
               </TableCell>
 
+              {/* Debit */}
               <TableCell className="text-right">
                 {statement.direction ===
                 "OUT"
@@ -113,6 +157,7 @@ export default function StatementTable({
                   : "-"}
               </TableCell>
 
+              {/* Credit */}
               <TableCell className="text-right">
                 {statement.direction ===
                 "IN"
@@ -123,6 +168,7 @@ export default function StatementTable({
                   : "-"}
               </TableCell>
 
+              {/* Fee */}
               <TableCell className="text-right">
                 {statement.fee > 0
                   ? formatCurrency(
@@ -132,6 +178,7 @@ export default function StatementTable({
                   : "-"}
               </TableCell>
 
+              {/* Balance */}
               <TableCell className="text-right font-semibold">
                 {formatCurrency(
                   statement.balanceAfter,
@@ -139,6 +186,7 @@ export default function StatementTable({
                 )}
               </TableCell>
 
+              {/* Status */}
               <TableCell>
                 <Badge
                   variant={

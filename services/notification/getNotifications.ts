@@ -11,6 +11,7 @@ export async function getNotifications(
     user: userId,
   })
     .sort({
+      read: 1,
       createdAt: -1,
     })
     .limit(limit)

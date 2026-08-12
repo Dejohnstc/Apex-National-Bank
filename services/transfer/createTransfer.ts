@@ -8,14 +8,13 @@ import { generateReference } from "@/lib/bank/generateReference";
 
 import { createTransaction } from "@/services/transaction/createTransaction";
 
+import { createNotification } from "@/services/notification/createNotification";
+
 interface CreateTransferInput {
   fromAccountId: string;
   toAccountId: string;
-
   userId: string;
-
   amount: number;
-
   description: string;
 }
 
@@ -28,15 +27,12 @@ export async function createTransfer({
 }: CreateTransferInput) {
   await connectDB();
 
-  console.log("========== CREATE TRANSFER ==========");
-  console.log({
-    fromAccountId,
-    toAccountId,
-    userId,
-    amount,
-  });
-
   const session = await startSession();
+
+  let reference = "";
+  let transferAmount = amount;
+  let recipientName = "";
+  let senderAccountName = "";
 
   try {
     session.startTransaction();
@@ -44,18 +40,25 @@ export async function createTransfer({
     const from = await Account.findOne({
       _id: fromAccountId,
       user: userId,
+      status: "ACTIVE",
     }).session(session);
 
-    console.log("From Account:", from?.accountNumber);
+    if (!from) {
+      throw new Error(
+        "Source account not found."
+      );
+    }
 
-    const to = await Account.findById(
-      toAccountId
-    ).session(session);
+    const to = await Account.findOne({
+      _id: toAccountId,
+      user: userId,
+      status: "ACTIVE",
+    }).session(session);
 
-    console.log("To Account:", to?.accountNumber);
-
-    if (!from || !to) {
-      throw new Error("Account not found.");
+    if (!to) {
+      throw new Error(
+        "Destination account not found."
+      );
     }
 
     if (from.id === to.id) {
@@ -64,20 +67,28 @@ export async function createTransfer({
       );
     }
 
-    if (amount <= 0) {
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       throw new Error(
         "Transfer amount must be greater than zero."
       );
     }
 
-    if (from.availableBalance < amount) {
+    if (
+      from.availableBalance < amount
+    ) {
       throw new Error(
         "Insufficient available funds."
       );
     }
 
-    const senderBefore = from.currentBalance;
-    const receiverBefore = to.currentBalance;
+    const senderBefore =
+      from.availableBalance;
+
+    const receiverBefore =
+      to.availableBalance;
 
     from.currentBalance -= amount;
     from.availableBalance -= amount;
@@ -86,91 +97,134 @@ export async function createTransfer({
     to.availableBalance += amount;
 
     await from.save({ session });
-    console.log("Sender account updated");
-
     await to.save({ session });
-    console.log("Receiver account updated");
 
-    const reference = generateReference("TRF");
+    reference =
+      generateReference("TRF");
 
-    console.log("Reference:", reference);
+    recipientName =
+      `${to.nickname} (${to.type})`;
+
+    senderAccountName =
+      `${from.nickname} (${from.type})`;
+
+    transferAmount = amount;
 
     await createTransaction({
       user: userId,
       account: from.id,
-
       reference,
 
       type: "TRANSFER",
       direction: "DEBIT",
+      status: "COMPLETED",
 
       amount,
 
       balanceBefore: senderBefore,
-      balanceAfter: from.currentBalance,
+      balanceAfter:
+        from.availableBalance,
 
       description:
         description ||
         `Transfer to ${to.nickname}`,
 
-      counterpartyAccount: to.accountNumber,
+      counterpartyAccount:
+        to.accountNumber,
 
       counterpartyName:
-        `${to.nickname} (${to.type})`,
+        recipientName,
 
       memo: description,
 
       session,
     });
 
-    console.log("Debit transaction created");
-
     await createTransaction({
       user: userId,
       account: to.id,
-
       reference,
 
       type: "TRANSFER",
       direction: "CREDIT",
+      status: "COMPLETED",
 
       amount,
 
       balanceBefore: receiverBefore,
-      balanceAfter: to.currentBalance,
+      balanceAfter:
+        to.availableBalance,
 
       description:
         description ||
         `Transfer from ${from.nickname}`,
 
-      counterpartyAccount: from.accountNumber,
+      counterpartyAccount:
+        from.accountNumber,
 
       counterpartyName:
-        `${from.nickname} (${from.type})`,
+        senderAccountName,
 
       memo: description,
 
       session,
     });
 
-    console.log("Credit transaction created");
-
     await session.commitTransaction();
-
-    console.log("Transaction committed");
-    console.log("====================================");
-
-    return {
-      success: true,
-      reference,
-    };
   } catch (error) {
     await session.abortTransaction();
 
-    console.error("Transfer failed:", error);
+    console.error(
+      "Transfer failed:",
+      error
+    );
 
     throw error;
   } finally {
     await session.endSession();
   }
+
+  /*
+   * The transfer has now successfully committed.
+   * Notification failure must never undo the transfer.
+   */
+  try {
+    await createNotification({
+      user: userId,
+
+      title: "Transfer Completed",
+
+      message:
+        `Your transfer of ${new Intl.NumberFormat(
+          "en-US",
+          {
+            style: "currency",
+            currency: "USD",
+          }
+        ).format(transferAmount)} to ${recipientName} was completed successfully.`,
+
+      type: "SUCCESS",
+
+      category: "ACH",
+
+      actionUrl:
+        `/dashboard/transactions`,
+
+      metadata: {
+        reference,
+        amount: transferAmount,
+        recipient: recipientName,
+      },
+    });
+  } catch (notificationError) {
+    console.error(
+      "Transfer notification failed:",
+      notificationError
+    );
+  }
+
+  return {
+    success: true,
+    reference,
+  };
 }

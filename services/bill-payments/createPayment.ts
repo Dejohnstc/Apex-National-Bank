@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import mongoose from "mongoose";
 
 import dbConnect from "@/lib/db/connect";
@@ -13,6 +14,8 @@ import {
 
 import { generateReference } from "@/lib/bank/generateReference";
 
+import { createNotification } from "@/services/notification/createNotification";
+
 interface CreatePaymentInput {
   userId: string;
   data: unknown;
@@ -27,86 +30,166 @@ export async function createPayment({
   const parsed: PaymentData =
     paymentSchema.parse(data);
 
-  const session = await mongoose.startSession();
+  const session =
+    await mongoose.startSession();
+
+  let reference = "";
+  let paymentId = "";
+  let isScheduled = false;
 
   try {
     session.startTransaction();
 
-    const account = await Account.findOne({
-      _id: parsed.account,
-      user: userId,
-    }).session(session);
+    /*
+     * Verify that the account belongs
+     * to the authenticated user.
+     */
+    const account =
+      await Account.findOne({
+        _id: parsed.account,
+        user: userId,
+        status: "ACTIVE",
+      }).session(session);
 
     if (!account) {
-      throw new Error("Account not found.");
+      throw new Error(
+        "Account not found."
+      );
     }
 
     const total = parsed.amount;
 
-    if (
-      !parsed.scheduledDate &&
-      account.availableBalance < total
-    ) {
-      throw new Error("Insufficient funds.");
-    }
+    /*
+     * Scheduled payments do not debit
+     * the account immediately.
+     */
+    isScheduled =
+      Boolean(parsed.scheduledDate);
 
-    const reference = generateReference("BP");
+    reference =
+      generateReference("BP");
 
-    const [payment] = await BillPayment.create(
-      [
-        {
-          user: userId,
-          account: account._id,
-          biller: parsed.biller,
-          category: parsed.category,
-          accountNumber: parsed.accountNumber,
-          amount: parsed.amount,
-          fee: 0,
-          memo: parsed.memo,
-          scheduledDate: parsed.scheduledDate,
-          paymentDate: parsed.scheduledDate
-            ? undefined
-            : new Date(),
-          status: parsed.scheduledDate
-            ? "SCHEDULED"
-            : "COMPLETED",
-          isRecurring: parsed.isRecurring,
-          recurringFrequency:
-            parsed.recurringFrequency,
-          reference,
-          confirmationNumber:
-            crypto.randomUUID(),
-        },
-      ],
-      { session }
-    );
+    /*
+     * Create the bill payment record.
+     */
+    const [payment] =
+      await BillPayment.create(
+        [
+          {
+            user: userId,
+            account: account._id,
 
-    if (!parsed.scheduledDate) {
+            biller: parsed.biller,
+            category: parsed.category,
+            accountNumber:
+              parsed.accountNumber,
+
+            amount: parsed.amount,
+            fee: 0,
+
+            memo: parsed.memo,
+
+            scheduledDate:
+              parsed.scheduledDate,
+
+            paymentDate: isScheduled
+              ? undefined
+              : new Date(),
+
+            status: isScheduled
+              ? "SCHEDULED"
+              : "COMPLETED",
+
+            isRecurring:
+              parsed.isRecurring,
+
+            recurringFrequency:
+              parsed.recurringFrequency,
+
+            reference,
+
+            confirmationNumber:
+              crypto.randomUUID(),
+          },
+        ],
+        { session }
+      );
+
+    paymentId =
+      payment._id.toString();
+
+    /*
+     * Immediate payment:
+     *
+     * Debit the account and create
+     * the corresponding transaction.
+     */
+    if (!isScheduled) {
       const balanceBefore =
         account.availableBalance;
 
-      account.availableBalance -= total;
+      /*
+       * Make the balance check and debit
+       * part of the same database operation.
+       */
+      const updatedAccount =
+        await Account.findOneAndUpdate(
+          {
+            _id: account._id,
+            user: userId,
+            status: "ACTIVE",
+            availableBalance: {
+              $gte: total,
+            },
+          },
+          {
+            $inc: {
+              availableBalance: -total,
+            },
+          },
+          {
+            new: true,
+            session,
+          }
+        );
 
-      await account.save({ session });
+      if (!updatedAccount) {
+        throw new Error(
+          "Insufficient funds."
+        );
+      }
 
       await Transaction.create(
         [
           {
             user: userId,
             account: account._id,
+
             type: "BILL_PAYMENT",
             direction: "OUT",
             status: "COMPLETED",
+
             amount: parsed.amount,
             fee: 0,
+
             balanceBefore,
             balanceAfter:
-              account.availableBalance,
-            description: `Bill Payment - ${parsed.biller}`,
-            merchant: parsed.biller,
-            category: parsed.category,
-            currency: account.currency,
+              updatedAccount.availableBalance,
+
+            description:
+              `Bill Payment - ${parsed.biller}`,
+
+            merchant:
+              parsed.biller,
+
+            category:
+              parsed.category,
+
+            currency:
+              account.currency,
+
             reference,
+
             postedAt: new Date(),
           },
         ],
@@ -115,15 +198,100 @@ export async function createPayment({
     }
 
     await session.commitTransaction();
-
-    return {
-      success: true,
-      payment,
-    };
   } catch (error) {
     await session.abortTransaction();
+
     throw error;
   } finally {
     await session.endSession();
   }
+
+  /*
+   * The database transaction has successfully
+   * committed. Notifications are deliberately
+   * created afterward so notification/email
+   * failures cannot roll back the payment.
+   */
+  try {
+    if (isScheduled) {
+      await createNotification({
+        user: userId,
+
+        title:
+          "Bill Payment Scheduled",
+
+        message:
+          `Your ${parsed.biller} bill payment of ${new Intl.NumberFormat(
+            "en-US",
+            {
+              style: "currency",
+              currency: "USD",
+            }
+          ).format(parsed.amount)} has been scheduled.`,
+
+        type: "INFO",
+
+        category: "BILLPAY",
+
+        actionUrl:
+          "/dashboard/bill-payments",
+
+        metadata: {
+          paymentId,
+          reference,
+          biller: parsed.biller,
+          amount: parsed.amount,
+          scheduledDate:
+            parsed.scheduledDate,
+          isRecurring:
+            parsed.isRecurring,
+          recurringFrequency:
+            parsed.recurringFrequency,
+        },
+      });
+    } else {
+      await createNotification({
+        user: userId,
+
+        title:
+          "Bill Payment Completed",
+
+        message:
+          `Your ${parsed.biller} bill payment of ${new Intl.NumberFormat(
+            "en-US",
+            {
+              style: "currency",
+              currency: "USD",
+            }
+          ).format(parsed.amount)} was completed successfully.`,
+
+        type: "SUCCESS",
+
+        category: "BILLPAY",
+
+        actionUrl:
+          "/dashboard/bill-payments",
+
+        metadata: {
+          paymentId,
+          reference,
+          biller: parsed.biller,
+          amount: parsed.amount,
+          category: parsed.category,
+        },
+      });
+    }
+  } catch (notificationError) {
+    console.error(
+      "Bill payment notification failed:",
+      notificationError
+    );
+  }
+
+  return {
+    success: true,
+    paymentId,
+    reference,
+    scheduled: isScheduled,
+  };
 }

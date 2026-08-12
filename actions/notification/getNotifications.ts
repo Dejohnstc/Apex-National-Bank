@@ -24,22 +24,29 @@ export async function getNotificationData() {
   return {
     unreadCount,
 
-    notifications: notifications.map((n) => ({
-      id: String(n._id),
+    notifications: notifications.map(
+      (notification) => ({
+        id: notification._id.toString(),
 
-      title: n.title,
+        title: notification.title,
 
-      message: n.message,
+        message: notification.message,
 
-      type: n.type,
+        type: notification.type,
 
-      category: n.category,
+        category: notification.category,
 
-      read: n.read,
+        read: notification.read,
 
-      actionUrl: n.actionUrl,
+        actionUrl:
+          notification.actionUrl,
 
-      createdAt: n.createdAt,
-    })),
+        metadata:
+          notification.metadata,
+
+        createdAt:
+          notification.createdAt,
+      })
+    ),
   };
 }

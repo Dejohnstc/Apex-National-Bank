@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 
-import { getDeposits } from "@/services/mobile-check-deposit/getDeposits";
+import { getDeposits } from "@/services/mobile-check-deposit/getDeposit";
 
 export async function getDepositsAction() {
   const session = await auth();

@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { CheckDeposit } from "@/types/check-deposit";
 
 import DepositStatusBadge from "./DepositStatusBadge";
@@ -27,63 +29,78 @@ export default function DepositHistory({
   }
 
   return (
-    <div className="rounded-lg border overflow-hidden">
-      <table className="w-full">
-        <thead className="bg-muted">
-          <tr>
-            <th className="p-4 text-left">
-              Reference
-            </th>
+    <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted">
+            <tr>
+              <th className="p-4 text-left">
+                Reference
+              </th>
 
-            <th className="p-4 text-left">
-              Amount
-            </th>
+              <th className="p-4 text-left">
+                Amount
+              </th>
 
-            <th className="p-4 text-left">
-              Submitted
-            </th>
+              <th className="p-4 text-left">
+                Submitted
+              </th>
 
-            <th className="p-4 text-left">
-              Status
-            </th>
-          </tr>
-        </thead>
+              <th className="p-4 text-left">
+                Status
+              </th>
 
-        <tbody>
-          {deposits.map((deposit) => (
-            <tr
-              key={deposit._id}
-              className="border-t"
-            >
-              <td className="p-4 font-medium">
-                {deposit.reference}
-              </td>
-
-              <td className="p-4">
-                {new Intl.NumberFormat(
-                  "en-US",
-                  {
-                    style: "currency",
-                    currency: "USD",
-                  }
-                ).format(deposit.amount)}
-              </td>
-
-              <td className="p-4">
-                {new Date(
-                  deposit.submittedAt
-                ).toLocaleDateString()}
-              </td>
-
-              <td className="p-4">
-                <DepositStatusBadge
-                  status={deposit.status}
-                />
-              </td>
+              <th className="p-4 text-left">
+                Details
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {deposits.map((deposit) => (
+              <tr
+                key={deposit._id}
+                className="border-t"
+              >
+                <td className="p-4 font-medium">
+                  {deposit.reference}
+                </td>
+
+                <td className="p-4">
+                  {new Intl.NumberFormat(
+                    "en-US",
+                    {
+                      style: "currency",
+                      currency: "USD",
+                    }
+                  ).format(deposit.amount)}
+                </td>
+
+                <td className="p-4">
+                  {new Date(
+                    deposit.submittedAt
+                  ).toLocaleDateString()}
+                </td>
+
+                <td className="p-4">
+                  <DepositStatusBadge
+                    status={deposit.status}
+                  />
+                </td>
+
+                <td className="p-4">
+                  <Link
+                    href={`/dashboard/mobile-check-deposit/${deposit._id}`}
+                    className="text-primary hover:underline"
+                  >
+                    View
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

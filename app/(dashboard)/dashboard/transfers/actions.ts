@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth/auth";
 
 import { createTransfer } from "@/services/transfer/createTransfer";
 
@@ -22,13 +23,21 @@ type TransferActionResult =
     };
 
 export async function createTransferAction(
-  data: TransferInput,
-  userId: string
+  data: TransferInput
 ): Promise<TransferActionResult> {
   try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        message: "Unauthorized.",
+      };
+    }
+
     const result = await createTransfer({
       ...data,
-      userId,
+      userId: session.user.id,
     });
 
     revalidatePath("/dashboard");

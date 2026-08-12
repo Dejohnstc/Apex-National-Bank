@@ -8,14 +8,16 @@ export async function getTransfers(
 ): Promise<TransactionType[]> {
   await connectDB();
 
-  const transfers = await Transaction.find({
-    user: userId,
-    type: "TRANSFER",
-  })
-    .sort({
-      postedAt: -1,
+  const transfers =
+    await Transaction.find({
+      user: userId,
+      type: "TRANSFER",
+      direction: "DEBIT",
     })
-    .lean();
+      .sort({
+        postedAt: -1,
+      })
+      .lean();
 
   return transfers.map((transfer) => ({
     ...transfer,
@@ -23,4 +25,5 @@ export async function getTransfers(
     user: transfer.user.toString(),
     account: transfer.account.toString(),
   })) as TransactionType[];
+
 }

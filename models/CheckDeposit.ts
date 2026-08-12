@@ -59,9 +59,31 @@ const checkDepositSchema = new Schema(
       index: true,
     },
 
+    reviewedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    reviewedAt: {
+      type: Date,
+      default: null,
+    },
+
     reviewNotes: {
       type: String,
       default: "",
+    },
+
+    fundsReleasedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    fundsReleasedAt: {
+      type: Date,
+      default: null,
     },
 
     submittedAt: {
@@ -69,11 +91,20 @@ const checkDepositSchema = new Schema(
       default: Date.now,
     },
 
-    approvedAt: Date,
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
 
-    rejectedAt: Date,
+    rejectedAt: {
+      type: Date,
+      default: null,
+    },
 
-    availableAt: Date,
+    availableAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

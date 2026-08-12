@@ -6,13 +6,21 @@ export async function markAllRead(
 ) {
   await dbConnect();
 
-  await Notification.updateMany(
-    {
-      user: userId,
-      read: false,
-    },
-    {
-      read: true,
-    }
-  );
+  const result =
+    await Notification.updateMany(
+      {
+        user: userId,
+        read: false,
+      },
+      {
+        $set: {
+          read: true,
+        },
+      }
+    );
+
+  return {
+    success: true,
+    modifiedCount: result.modifiedCount,
+  };
 }

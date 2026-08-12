@@ -2,7 +2,10 @@ import { ClientSession } from "mongoose";
 
 import dbConnect from "@/lib/db/connect";
 
-import  Notification  from "@/models/notification/Notification";
+import Notification from "@/models/notification/Notification";
+import { User } from "@/models/user/User";
+
+import { sendNotificationEmail } from "@/services/email/sendNotificationEmail";
 
 interface CreateNotificationInput {
   user: string;
@@ -41,16 +44,16 @@ export async function createNotification(
   await dbConnect();
 
   const notification = {
-    user: input.user,
+  user: input.user,
+  title: input.title,
+  message: input.message,
+  type: input.type ?? "INFO",
+  category: input.category ?? "SYSTEM",
+  actionUrl: input.actionUrl ?? "",
+  metadata: input.metadata ?? {},
+};
 
-    title: input.title,
-
-    message: input.message,
-
-    type: input.type ?? "INFO",
-
-    actionUrl: input.actionUrl,
-  };
+  let createdNotification;
 
   if (input.session) {
     const [created] =
@@ -61,8 +64,47 @@ export async function createNotification(
         }
       );
 
-    return created;
+    createdNotification = created;
+  } else {
+    createdNotification =
+      await Notification.create(
+        notification
+      );
   }
 
-  return Notification.create(notification);
+  /*
+   * Email notification
+   *
+   * Do not allow an email failure to
+   * break the in-app notification.
+   */
+  try {
+    const user = await User.findById(
+      input.user
+    )
+      .select(
+        "email emailNotifications"
+      )
+      .lean();
+
+    if (
+      user?.email &&
+      user.emailNotifications
+    ) {
+      await sendNotificationEmail({
+        to: user.email,
+        title: input.title,
+        message: input.message,
+        actionUrl:
+          input.actionUrl,
+      });
+    }
+  } catch (error) {
+    console.error(
+      "Failed to send notification email:",
+      error
+    );
+  }
+
+  return createdNotification;
 }

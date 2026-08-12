@@ -1,36 +1,63 @@
-import { redirect } from "next/navigation";
+"use client";
 
-import { auth } from "@/lib/auth/auth";
-
-import { getAccounts } from "@/services/account/getAccounts";
-
-import { getTransfers } from "@/services/transfer/getTransfers";
+import { useState } from "react";
 
 import { TransferForm } from "@/components/transfers/TransferForm";
+import { ScheduledTransferForm } from "@/components/transfers/ScheduledTransferForm";
+import ScheduledTransferList, {
+  type ScheduledTransferItem,
+} from "@/components/transfers/ScheduledTransferList";
+import CancelScheduledTransferDialog from "@/components/transfers/CancelScheduledTransferDialog";
 import { TransferHistory } from "@/components/transfers/TransferHistory";
 
-export default async function TransfersPage() {
-  const session = await auth();
+import type { Account, Transaction } from "@/types";
 
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+interface Props {
+  accounts: Account[];
+  transfers: Transaction[];
+  scheduledTransfers: ScheduledTransferItem[];
+}
 
-  const [accounts, transfers] =
-    await Promise.all([
-      getAccounts(session.user.id),
-      getTransfers(session.user.id),
-    ]);
+export default function TransfersPageClient({
+  accounts,
+  transfers,
+  scheduledTransfers,
+}: Props) {
+  const [cancelTransfer, setCancelTransfer] =
+    useState<ScheduledTransferItem | null>(null);
 
   return (
     <div className="space-y-8">
       <TransferForm
         accounts={accounts}
-        userId={session.user.id}
+      />
+
+      <ScheduledTransferForm
+        accounts={accounts}
+      />
+
+      <ScheduledTransferList
+        transfers={scheduledTransfers}
+        onCancel={(transfer) =>
+          setCancelTransfer(transfer)
+        }
       />
 
       <TransferHistory
         transfers={transfers}
+      />
+
+      <CancelScheduledTransferDialog
+        open={!!cancelTransfer}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelTransfer(null);
+          }
+        }}
+        transfer={cancelTransfer}
+        onCancelled={() => {
+          setCancelTransfer(null);
+        }}
       />
     </div>
   );

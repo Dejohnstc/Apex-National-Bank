@@ -2,6 +2,7 @@ import type { Currency } from "./account";
 
 export type TransactionType =
   | "DEPOSIT"
+  | "CHECK_DEPOSIT"
   | "WITHDRAWAL"
   | "TRANSFER"
   | "WIRE"

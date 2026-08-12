@@ -1,6 +1,9 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
 
 import type { Statement } from "@/types/statement";
 
@@ -10,89 +13,116 @@ interface Props {
 
 function money(
   amount: number,
-  currency = "USD"
+  currency: string
 ) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(amount);
+  try {
+    return new Intl.NumberFormat(
+      "en-US",
+      {
+        style: "currency",
+        currency,
+      }
+    ).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
 }
 
 export default function StatementSummary({
   statements,
 }: Props) {
+  if (statements.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-6">
+        <p className="text-sm text-muted-foreground">
+          No statement data available for the selected filters.
+        </p>
+      </div>
+    );
+  }
+
+  /*
+   * Statements are sorted newest → oldest.
+   *
+   * Therefore:
+   * - First statement = newest transaction
+   * - Last statement = oldest transaction
+   */
+  const newest = statements[0];
+  const oldest =
+    statements[statements.length - 1];
+
+  const currency =
+    newest.currency || "USD";
+
   const openingBalance =
-    statements.length > 0
-      ? statements[
-          statements.length - 1
-        ].balanceBefore
-      : 0;
+    oldest.balanceBefore;
 
   const closingBalance =
-    statements.length > 0
-      ? statements[0]
-          .balanceAfter
-      : 0;
+    newest.balanceAfter;
 
-  const credits =
-    statements
-      .filter(
-        (t) =>
-          t.direction === "IN"
-      )
-      .reduce(
-        (sum, t) =>
-          sum + t.amount,
-        0
-      );
-
-  const debits =
-    statements
-      .filter(
-        (t) =>
-          t.direction ===
-          "OUT"
-      )
-      .reduce(
-        (sum, t) =>
-          sum + t.amount,
-        0
-      );
-
-  const fees =
-    statements.reduce(
-      (sum, t) =>
-        sum + t.fee,
+  const credits = statements
+    .filter(
+      (statement) =>
+        statement.direction === "IN"
+    )
+    .reduce(
+      (sum, statement) =>
+        sum + statement.amount,
       0
     );
 
+  const debits = statements
+    .filter(
+      (statement) =>
+        statement.direction === "OUT"
+    )
+    .reduce(
+      (sum, statement) =>
+        sum + statement.amount,
+      0
+    );
+
+  const fees = statements.reduce(
+    (sum, statement) =>
+      sum + statement.fee,
+    0
+  );
+
   const cards = [
     {
-      title:
-        "Opening Balance",
+      title: "Opening Balance",
       value: money(
-        openingBalance
+        openingBalance,
+        currency
       ),
     },
     {
-      title:
-        "Total Credits",
-      value: money(credits),
+      title: "Total Credits",
+      value: money(
+        credits,
+        currency
+      ),
     },
     {
-      title:
-        "Total Debits",
-      value: money(debits),
+      title: "Total Debits",
+      value: money(
+        debits,
+        currency
+      ),
     },
     {
       title: "Fees",
-      value: money(fees),
+      value: money(
+        fees,
+        currency
+      ),
     },
     {
-      title:
-        "Closing Balance",
+      title: "Closing Balance",
       value: money(
-        closingBalance
+        closingBalance,
+        currency
       ),
     },
   ];
