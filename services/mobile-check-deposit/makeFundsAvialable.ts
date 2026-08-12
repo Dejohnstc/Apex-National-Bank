@@ -11,11 +11,13 @@ import { createNotification } from "@/services/notification/createNotification";
 
 interface MakeFundsAvailableInput {
   userId: string;
+  reviewerId: string;
   depositId: string;
 }
 
 export async function makeFundsAvailable({
   userId,
+  reviewerId,
   depositId,
 }: MakeFundsAvailableInput) {
   await dbConnect();
@@ -30,10 +32,6 @@ export async function makeFundsAvailable({
   try {
     session.startTransaction();
 
-    /*
-     * Lock the deposit to this customer and
-     * require APPROVED status.
-     */
     const deposit =
       await CheckDeposit.findOne({
         _id: depositId,
@@ -47,10 +45,6 @@ export async function makeFundsAvailable({
       );
     }
 
-    /*
-     * Verify the destination account belongs
-     * to the same customer and is active.
-     */
     const account =
       await Account.findOne({
         _id: deposit.account,
@@ -64,15 +58,14 @@ export async function makeFundsAvailable({
       );
     }
 
+    const now = new Date();
+
     const balanceBefore =
       account.availableBalance;
 
     const balanceAfter =
       balanceBefore + deposit.amount;
 
-    /*
-     * Credit the account.
-     */
     account.currentBalance +=
       deposit.amount;
 
@@ -83,10 +76,6 @@ export async function makeFundsAvailable({
       session,
     });
 
-    /*
-     * Create the financial transaction
-     * inside the same MongoDB transaction.
-     */
     const transactionReference =
       generateReference("MCD");
 
@@ -131,7 +120,7 @@ export async function makeFundsAvailable({
           deposit.reference,
       },
 
-      postedAt: new Date(),
+      postedAt: now,
 
       availableBalance:
         account.availableBalance,
@@ -139,16 +128,15 @@ export async function makeFundsAvailable({
       session,
     });
 
-    /*
-     * Only mark the deposit available after
-     * the account credit and transaction have
-     * been created successfully.
-     */
     deposit.status =
       "FUNDS_AVAILABLE";
 
-    deposit.availableAt =
-      new Date();
+    deposit.availableAt = now;
+
+    deposit.fundsReleasedBy =
+      reviewerId;
+
+    deposit.fundsReleasedAt = now;
 
     await deposit.save({
       session,
@@ -172,8 +160,8 @@ export async function makeFundsAvailable({
   }
 
   /*
-   * Notify only after the financial transaction
-   * has successfully committed.
+   * Notification happens only after
+   * the financial transaction commits.
    */
   try {
     const formattedAmount =

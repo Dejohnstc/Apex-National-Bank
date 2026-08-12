@@ -42,6 +42,16 @@ const items = [
     icon: ArrowRightLeft,
   },
   {
+    label: "Bill Payments",
+    href: "/admin/bill-payments",
+    icon: ReceiptText,
+  },
+  {
+    label: "Mobile Check Deposits",
+    href: "/admin/mobile-check-deposits",
+    icon: Landmark,
+  },
+  {
     label: "Cards",
     href: "/admin/cards",
     icon: CreditCard,
@@ -57,6 +67,7 @@ const items = [
     icon: Settings,
   },
 ];
+
 
 export function AdminSidebar() {
   const pathname = usePathname();

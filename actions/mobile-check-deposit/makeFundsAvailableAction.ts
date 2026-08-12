@@ -16,18 +16,12 @@ interface MakeFundsAvailableActionInput {
 export async function makeFundsAvailableAction({
   depositId,
 }: MakeFundsAvailableActionInput) {
-  await requireStaff();
+  const session =
+    await requireStaff();
 
   try {
     await dbConnect();
 
-    /*
-     * Find the approved deposit.
-     *
-     * The staff member is authorized through
-     * requireStaff(); the deposit owner comes
-     * from the deposit itself.
-     */
     const deposit =
       await CheckDeposit.findById(
         depositId
@@ -41,7 +35,9 @@ export async function makeFundsAvailableAction({
       };
     }
 
-    if (deposit.status !== "APPROVED") {
+    if (
+      deposit.status !== "APPROVED"
+    ) {
       return {
         success: false as const,
         message:
@@ -54,16 +50,27 @@ export async function makeFundsAvailableAction({
         userId:
           deposit.user.toString(),
 
+        reviewerId:
+          session.user.id,
+
         depositId:
           deposit._id.toString(),
       });
 
     revalidatePath(
-      "/dashboard/mobile-check-deposit"
+      "/admin/mobile-check-deposits"
     );
 
     revalidatePath(
-      `/dashboard/mobile-check-deposit/${depositId}`
+      `/admin/mobile-check-deposits/${depositId}`
+    );
+
+    revalidatePath(
+      "/dashboard"
+    );
+
+    revalidatePath(
+      "/dashboard/accounts"
     );
 
     return result;
