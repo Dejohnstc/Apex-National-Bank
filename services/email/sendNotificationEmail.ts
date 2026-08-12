@@ -52,7 +52,7 @@ export async function sendNotificationEmail({
     await resend.emails.send({
       from:
         process.env.NOTIFICATION_EMAIL_FROM ??
-        "Apex National Bank <notifications@example.com>",
+        "Apex National Bank <noreply@obiresoffice.com>",
 
       to: [to],
 

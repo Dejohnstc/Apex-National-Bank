@@ -1,10 +1,10 @@
 export const TRANSACTION_TYPES = [
   "DEPOSIT",
-  "CHECK_DEPOSIT",
   "WITHDRAWAL",
   "TRANSFER",
   "WIRE",
   "ACH",
+  "BILL_PAYMENT", // ADD THIS
   "CARD_PURCHASE",
   "ATM",
   "CHECK",
@@ -24,4 +24,6 @@ export const TRANSACTION_STATUS = [
   "COMPLETED",
   "FAILED",
   "CANCELLED",
+  "REJECTED",
+  "RETURNED",
 ] as const;

@@ -30,8 +30,52 @@ export async function markAsRead(
     };
   }
 
+  /*
+   * Do not return the raw Mongoose document.
+   * Server Actions can only pass plain
+   * serializable values to Client Components.
+   */
   return {
     success: true,
-    notification,
+
+    notification: {
+      _id: notification._id.toString(),
+
+      user:
+        notification.user.toString(),
+
+      title:
+        notification.title,
+
+      message:
+        notification.message,
+
+      type:
+        notification.type,
+
+      category:
+        notification.category,
+
+      actionUrl:
+        notification.actionUrl ?? "",
+
+      read:
+        Boolean(notification.read),
+
+      metadata:
+        notification.metadata
+          ? JSON.parse(
+              JSON.stringify(
+                notification.metadata
+              )
+            )
+          : {},
+
+      createdAt:
+        notification.createdAt.toISOString(),
+
+      updatedAt:
+        notification.updatedAt.toISOString(),
+    },
   };
 }

@@ -2,14 +2,17 @@ import type { Currency } from "./account";
 
 export type TransactionType =
   | "DEPOSIT"
-  | "CHECK_DEPOSIT"
   | "WITHDRAWAL"
   | "TRANSFER"
   | "WIRE"
   | "ACH"
-  | "PAYMENT"
+  | "BILL_PAYMENT"
+  | "CARD_PURCHASE"
+  | "ATM"
+  | "CHECK"
+  | "INTEREST"
   | "FEE"
-  | "INTEREST";
+  | "REFUND";
 
 export type TransactionDirection =
   | "CREDIT"

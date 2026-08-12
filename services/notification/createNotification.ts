@@ -44,14 +44,17 @@ export async function createNotification(
   await dbConnect();
 
   const notification = {
-  user: input.user,
-  title: input.title,
-  message: input.message,
-  type: input.type ?? "INFO",
-  category: input.category ?? "SYSTEM",
-  actionUrl: input.actionUrl ?? "",
-  metadata: input.metadata ?? {},
-};
+    user: input.user,
+    title: input.title,
+    message: input.message,
+    type: input.type ?? "INFO",
+    category:
+      input.category ?? "SYSTEM",
+    actionUrl:
+      input.actionUrl ?? "",
+    metadata:
+      input.metadata ?? {},
+  };
 
   let createdNotification;
 
@@ -73,19 +76,18 @@ export async function createNotification(
   }
 
   /*
-   * Email notification
+   * Email notification.
    *
-   * Do not allow an email failure to
-   * break the in-app notification.
+   * Email failures must never break
+   * the in-app notification.
    */
   try {
-    const user = await User.findById(
-      input.user
-    )
-      .select(
-        "email emailNotifications"
-      )
-      .lean();
+    const user =
+      await User.findById(input.user)
+        .select(
+          "email emailNotifications"
+        )
+        .lean();
 
     if (
       user?.email &&
@@ -106,5 +108,44 @@ export async function createNotification(
     );
   }
 
-  return createdNotification;
+  /*
+   * IMPORTANT:
+   *
+   * Never return the raw Mongoose document
+   * across a Server Action boundary.
+   */
+  return {
+    _id:
+      createdNotification._id.toString(),
+
+    user:
+      createdNotification.user.toString(),
+
+    title:
+      createdNotification.title,
+
+    message:
+      createdNotification.message,
+
+    type:
+      createdNotification.type,
+
+    category:
+      createdNotification.category,
+
+    actionUrl:
+      createdNotification.actionUrl ?? "",
+
+    read:
+      createdNotification.read,
+
+    metadata:
+      createdNotification.metadata ?? {},
+
+    createdAt:
+      createdNotification.createdAt.toISOString(),
+
+    updatedAt:
+      createdNotification.updatedAt.toISOString(),
+  };
 }

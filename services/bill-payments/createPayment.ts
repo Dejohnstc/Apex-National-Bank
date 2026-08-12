@@ -37,6 +37,19 @@ export async function createPayment({
   let paymentId = "";
   let isScheduled = false;
 
+  /*
+   * Keep the payment document outside
+   * the transaction block so it can be
+   * serialized after the transaction commits.
+   */
+  let payment:
+    | Awaited<
+        ReturnType<
+          typeof BillPayment.create
+        >
+      >[number]
+    | null = null;
+
   try {
     session.startTransaction();
 
@@ -72,7 +85,7 @@ export async function createPayment({
     /*
      * Create the bill payment record.
      */
-    const [payment] =
+    const payments =
       await BillPayment.create(
         [
           {
@@ -114,6 +127,14 @@ export async function createPayment({
         ],
         { session }
       );
+
+    payment = payments[0];
+
+    if (!payment) {
+      throw new Error(
+        "Unable to create bill payment."
+      );
+    }
 
     paymentId =
       payment._id.toString();
@@ -166,7 +187,7 @@ export async function createPayment({
             account: account._id,
 
             type: "BILL_PAYMENT",
-            direction: "OUT",
+            direction: "DEBIT",
             status: "COMPLETED",
 
             amount: parsed.amount,
@@ -200,7 +221,6 @@ export async function createPayment({
     await session.commitTransaction();
   } catch (error) {
     await session.abortTransaction();
-
     throw error;
   } finally {
     await session.endSession();
@@ -208,9 +228,11 @@ export async function createPayment({
 
   /*
    * The database transaction has successfully
-   * committed. Notifications are deliberately
-   * created afterward so notification/email
-   * failures cannot roll back the payment.
+   * committed.
+   *
+   * Notifications are deliberately created
+   * afterward so notification/email failures
+   * cannot roll back the payment.
    */
   try {
     if (isScheduled) {
@@ -227,7 +249,9 @@ export async function createPayment({
               style: "currency",
               currency: "USD",
             }
-          ).format(parsed.amount)} has been scheduled.`,
+          ).format(
+            parsed.amount
+          )} has been scheduled.`,
 
         type: "INFO",
 
@@ -263,7 +287,9 @@ export async function createPayment({
               style: "currency",
               currency: "USD",
             }
-          ).format(parsed.amount)} was completed successfully.`,
+          ).format(
+            parsed.amount
+          )} was completed successfully.`,
 
         type: "SUCCESS",
 
@@ -277,7 +303,8 @@ export async function createPayment({
           reference,
           biller: parsed.biller,
           amount: parsed.amount,
-          category: parsed.category,
+          category:
+            parsed.category,
         },
       });
     }
@@ -288,10 +315,79 @@ export async function createPayment({
     );
   }
 
+  /*
+   * IMPORTANT:
+   *
+   * Do not return the Mongoose document.
+   * Server Actions can only pass plain
+   * serializable values to Client Components.
+   */
+  if (!payment) {
+    throw new Error(
+      "Bill payment was created but could not be returned."
+    );
+  }
+
   return {
     success: true,
-    paymentId,
-    reference,
-    scheduled: isScheduled,
+
+    payment: {
+      _id: payment._id.toString(),
+
+      user:
+        payment.user.toString(),
+
+      account:
+        payment.account.toString(),
+
+      biller:
+        payment.biller,
+
+      category:
+        payment.category,
+
+      accountNumber:
+        payment.accountNumber,
+
+      amount:
+        payment.amount,
+
+      fee:
+        payment.fee,
+
+      memo:
+        payment.memo,
+
+      status:
+        payment.status,
+
+      paymentDate:
+        payment.paymentDate
+          ? payment.paymentDate.toISOString()
+          : null,
+
+      scheduledDate:
+        payment.scheduledDate
+          ? payment.scheduledDate.toISOString()
+          : null,
+
+      reference:
+        payment.reference,
+
+      confirmationNumber:
+        payment.confirmationNumber,
+
+      isRecurring:
+        payment.isRecurring,
+
+      recurringFrequency:
+        payment.recurringFrequency,
+
+      createdAt:
+        payment.createdAt.toISOString(),
+
+      updatedAt:
+        payment.updatedAt.toISOString(),
+    },
   };
 }

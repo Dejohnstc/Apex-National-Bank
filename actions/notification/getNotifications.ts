@@ -36,16 +36,29 @@ export async function getNotificationData() {
 
         category: notification.category,
 
-        read: notification.read,
+        read: Boolean(notification.read),
 
         actionUrl:
-          notification.actionUrl,
+          notification.actionUrl ?? "",
 
         metadata:
-          notification.metadata,
+          notification.metadata
+            ? JSON.parse(
+                JSON.stringify(
+                  notification.metadata
+                )
+              )
+            : {},
 
         createdAt:
-          notification.createdAt,
+          notification.createdAt
+            ? notification.createdAt.toISOString()
+            : null,
+
+        updatedAt:
+          notification.updatedAt
+            ? notification.updatedAt.toISOString()
+            : null,
       })
     ),
   };
