@@ -6,10 +6,10 @@ export type TransactionType =
   | "TRANSFER"
   | "WIRE"
   | "ACH"
-  | "BILL_PAYMENT"
   | "CARD_PURCHASE"
   | "ATM"
   | "CHECK"
+  | "CHECK_DEPOSIT"
   | "INTEREST"
   | "FEE"
   | "REFUND";
@@ -23,9 +23,7 @@ export type TransactionStatus =
   | "PROCESSING"
   | "COMPLETED"
   | "FAILED"
-  | "CANCELLED"
-  | "REJECTED"
-  | "RETURNED";
+  | "CANCELLED";
 
 export interface Transaction {
   _id: string;
