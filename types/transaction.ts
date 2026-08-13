@@ -23,7 +23,9 @@ export type TransactionStatus =
   | "PROCESSING"
   | "COMPLETED"
   | "FAILED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "REJECTED"
+  | "RETURNED";
 
 export interface Transaction {
   _id: string;

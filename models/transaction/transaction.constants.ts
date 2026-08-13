@@ -24,4 +24,6 @@ export const TRANSACTION_STATUS = [
   "COMPLETED",
   "FAILED",
   "CANCELLED",
+  "REJECTED",
+  "RETURNED",
 ] as const;
