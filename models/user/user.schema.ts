@@ -48,7 +48,10 @@ export const UserSchema = new Schema(
       required: true,
       trim: true,
     },
-
+avatar: {
+  type: String,
+  default: null,
+},
     password: {
       type: String,
       required: true,

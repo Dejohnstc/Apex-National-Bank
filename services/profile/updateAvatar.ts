@@ -2,16 +2,6 @@ import { connectDB } from "@/lib/db/mongodb";
 
 import { User } from "@/models/user/User";
 
-/*
-|--------------------------------------------------------------------------
-| Replace this import with YOUR Cloudinary helper.
-|--------------------------------------------------------------------------
-|
-| Example:
-|
-| import { uploadImage } from "@/lib/cloudinary";
-|
-*/
 import { uploadImage } from "@/lib/uploadImage";
 
 export async function updateAvatar(
@@ -20,8 +10,9 @@ export async function updateAvatar(
 ) {
   await connectDB();
 
-  const user =
-    await User.findById(userId);
+  const user = await User.findById(
+    userId
+  ).select("_id");
 
   if (!user) {
     return {
@@ -33,9 +24,25 @@ export async function updateAvatar(
   const avatar =
     await uploadImage(file);
 
-  user.avatar = avatar.secure_url;
+  const updatedUser =
+    await User.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          avatar: avatar.secure_url,
+        },
+      },
+      {
+        returnDocument: "after",
+      }
+    );
 
-  await user.save();
+  if (!updatedUser) {
+    return {
+      success: false,
+      message: "Unable to update avatar.",
+    };
+  }
 
   return {
     success: true,
