@@ -32,7 +32,8 @@ export interface IWireTransfer extends Document {
   accountId: Types.ObjectId;
 
   transactionId?: Types.ObjectId;
-
+recipientUserId?: Types.ObjectId;
+recipientAccountId?: Types.ObjectId;
   transactionReference?: string;
 
   type: WireTransferType;
@@ -122,7 +123,19 @@ const WireTransferSchema =
       ref: "Account",
       required: true,
     },
+recipientUserId: {
+  type: Types.ObjectId,
+  ref: "User",
+  default: null,
+  index: true,
+},
 
+recipientAccountId: {
+  type: Types.ObjectId,
+  ref: "Account",
+  default: null,
+  index: true,
+},
     transactionId: {
       type: Types.ObjectId,
       ref: "Transaction",

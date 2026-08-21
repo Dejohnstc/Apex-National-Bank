@@ -71,6 +71,11 @@ const senderName =
       message: "Account not found.",
     };
   }
+const recipientAccount =
+  await Account.findOne({
+    accountNumber: input.accountNumber,
+    status: "ACTIVE",
+  }).select("_id user accountNumber");
 
   const totalDebit =
     input.amount +
@@ -164,7 +169,11 @@ const senderName =
 
         transactionId:
           transaction._id,
+recipientUserId:
+  recipientAccount?.user ?? null,
 
+recipientAccountId:
+  recipientAccount?._id ?? null,
         transactionReference:
           transaction.reference,
 
