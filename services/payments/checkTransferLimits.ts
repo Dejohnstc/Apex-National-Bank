@@ -11,12 +11,25 @@ interface CheckTransferLimitsInput {
   amount: number;
 }
 
+function formatCurrency(
+  amount: number
+) {
+  return new Intl.NumberFormat(
+    "en-US",
+    {
+      style: "currency",
+      currency: "USD",
+    }
+  ).format(amount);
+}
+
 export async function checkTransferLimits({
   user,
   type,
   amount,
 }: CheckTransferLimitsInput) {
-  const limits = await getTransferLimits(type);
+  const limits =
+    await getTransferLimits(type);
 
   const userLimits =
     await getUserTransferLimits(user);
@@ -30,6 +43,10 @@ export async function checkTransferLimits({
   let monthlyLimit =
     limits.monthlyLimit;
 
+  /*
+   * User-specific limits override the
+   * global transfer limits when present.
+   */
   if (userLimits) {
     if (type === "ACH") {
       maxPerTransaction =
@@ -74,58 +91,106 @@ export async function checkTransferLimits({
     }
   }
 
+  /*
+   * Per-transaction limit.
+   */
   if (amount > maxPerTransaction) {
     throw new Error(
-      "Transfer exceeds the maximum amount allowed."
+      `Your ${type} transfer exceeds the maximum allowed per transaction of ${formatCurrency(
+        maxPerTransaction
+      )}.`
     );
   }
 
   const now = new Date();
 
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday =
+    new Date(now);
 
-  const startOfMonth = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1
+  startOfToday.setHours(
+    0,
+    0,
+    0,
+    0
   );
 
-  const transactions = await Transaction.find({
-    user,
-    type,
-    status: "COMPLETED",
-    createdAt: {
-      $gte: startOfMonth,
-    },
-  });
+  const startOfMonth =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
+
+  /*
+   * Include completed transactions
+   * for the current month.
+   */
+  const transactions =
+    await Transaction.find({
+      user,
+      type,
+      status: "COMPLETED",
+      createdAt: {
+        $gte: startOfMonth,
+      },
+    }).lean();
 
   let dailyTotal = 0;
   let monthlyTotal = 0;
 
   for (const tx of transactions) {
-    monthlyTotal += tx.amount;
+    const transactionAmount =
+      Number(tx.amount) || 0;
 
-    if (tx.createdAt >= startOfToday) {
-      dailyTotal += tx.amount;
+    monthlyTotal +=
+      transactionAmount;
+
+    if (
+      new Date(tx.createdAt) >=
+      startOfToday
+    ) {
+      dailyTotal +=
+        transactionAmount;
     }
   }
 
+  /*
+   * Daily limit.
+   */
   if (
     dailyTotal + amount >
     dailyLimit
   ) {
+    const remainingDaily =
+      Math.max(
+        0,
+        dailyLimit - dailyTotal
+      );
+
     throw new Error(
-      "Daily transfer limit exceeded."
+      `Your ${type} daily transfer limit has been exceeded. Your remaining daily limit is ${formatCurrency(
+        remainingDaily
+      )}.`
     );
   }
 
+  /*
+   * Monthly limit.
+   */
   if (
     monthlyTotal + amount >
     monthlyLimit
   ) {
+    const remainingMonthly =
+      Math.max(
+        0,
+        monthlyLimit - monthlyTotal
+      );
+
     throw new Error(
-      "Monthly transfer limit exceeded."
+      `Your ${type} monthly transfer limit has been exceeded. Your remaining monthly limit is ${formatCurrency(
+        remainingMonthly
+      )}.`
     );
   }
 }

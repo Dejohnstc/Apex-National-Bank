@@ -127,60 +127,88 @@ const selectedAccount =
 
   setReviewOpen(true);
 }
+
 function confirmTransfer() {
   startTransition(async () => {
+    try {
+      const result =
+        await createWireTransferAction({
+          accountId,
+          type,
+          recipientName,
+          bankName,
+          accountNumber,
 
-    const result =
-      await createWireTransferAction({
-        accountId,
+          routingNumber:
+            type === "DOMESTIC"
+              ? routingNumber
+              : undefined,
 
-        type,
+          swiftCode:
+            type === "INTERNATIONAL"
+              ? swiftCode
+              : undefined,
 
-        recipientName,
+          country:
+            type === "INTERNATIONAL"
+              ? country
+              : undefined,
 
-        bankName,
+          amount: amountNumber,
+          purpose,
+        });
 
-        accountNumber,
+      console.log(
+        "Wire transfer result:",
+        result
+      );
 
-        routingNumber:
-          type === "DOMESTIC"
-            ? routingNumber
-            : undefined,
+      if (!result?.success) {
+        toast.error(
+          result?.message ??
+            "Unable to submit wire transfer.",
+          {
+            duration: 6000,
+          }
+        );
 
-        swiftCode:
-          type === "INTERNATIONAL"
-            ? swiftCode
-            : undefined,
+        // Keep the modal open so the
+        // customer knows the submission
+        // was rejected and can cancel/edit.
+        return;
+      }
 
-        country:
-          type === "INTERNATIONAL"
-            ? country
-            : undefined,
+      toast.success(
+        "Wire transfer submitted successfully.",
+        {
+          duration: 5000,
+        }
+      );
 
-        amount: amountNumber,
+      window.dispatchEvent(
+        new Event("refresh-notifications")
+      );
 
-        purpose,
-      });
+      setReviewOpen(false);
 
-    if (!result.success) {
+      router.push(
+        `/dashboard/wires/${result.wireId}`
+      );
+    } catch (error) {
+      console.error(
+        "Wire submission failed:",
+        error
+      );
 
-      toast.error(result.message);
-
-      return;
-
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit wire transfer.",
+        {
+          duration: 6000,
+        }
+      );
     }
-
-    toast.success(
-      "Wire transfer submitted successfully."
-    );
-    
-window.dispatchEvent(
-  new Event("refresh-notifications")
-);
-    router.push(
-      `/dashboard/wires/${result.wireId}`
-    );
-
   });
 }
 return (

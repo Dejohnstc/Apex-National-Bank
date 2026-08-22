@@ -3,6 +3,7 @@ import connectDB from "@/lib/db/connect";
 
 import { Account } from "@/models/account/Account";
 import WireTransfer from "@/models/wire/WireTransfer";
+import { User } from "@/models/user/User";
 
 import { calculateAchEffectiveDate } from "@/lib/banking/calculateAchEffectiveDate";
 
@@ -11,11 +12,13 @@ import { checkTransferLimits } from "@/services/payments/checkTransferLimits";
 import { createNotification } from "@/services/notification/createNotification";
 import { createTransaction } from "@/services/payments/createTransaction";
 import { generateReference } from "@/services/payments/generateReference";
-import { User } from "@/models/user/User";
+
 interface CreateWireTransferInput {
   accountId: string;
 
-  type: "DOMESTIC" | "INTERNATIONAL";
+  type:
+    | "DOMESTIC"
+    | "INTERNATIONAL";
 
   recipientName: string;
   bankName: string;
@@ -37,84 +40,115 @@ export async function createWireTransfer(
 
   if (!session?.user?.id) {
     return {
-      success: false,
-      message: "Unauthorized",
+      success: false as const,
+      message: "Unauthorized.",
     };
   }
 
   await connectDB();
-const user = await User.findById(session.user.id);
 
-if (!user) {
-  return {
-    success: false,
-    message: "User not found.",
-  };
-}
+  try {
+    const user = await User.findById(
+      session.user.id
+    );
 
-const senderName =
-  `${user.firstName} ${user.lastName}`;
-  await checkTransferLimits({
-    user: session.user.id,
-    type: "WIRE",
-    amount: input.amount,
-  });
+    if (!user) {
+      return {
+        success: false as const,
+        message: "User not found.",
+      };
+    }
 
-  const account = await Account.findOne({
-    _id: input.accountId,
-    user: session.user.id,
-  });
+    const senderName =
+      `${user.firstName} ${user.lastName}`;
 
-  if (!account) {
-    return {
-      success: false,
-      message: "Account not found.",
-    };
-  }
-const recipientAccount =
-  await Account.findOne({
-    accountNumber: input.accountNumber,
-    status: "ACTIVE",
-  }).select("_id user accountNumber");
+    /*
+     * Validate transfer limits before
+     * creating any transaction or wire record.
+     *
+     * Any limit error is caught below and
+     * returned as a normal result so the
+     * customer remains on the wire page.
+     */
+    await checkTransferLimits({
+      user: session.user.id,
+      type: "WIRE",
+      amount: input.amount,
+    });
 
-  const totalDebit =
-    input.amount +
-    calculateFee(
+    /*
+     * Sender account must belong to the
+     * authenticated customer and be active.
+     */
+    const account =
+      await Account.findOne({
+        _id: input.accountId,
+        user: session.user.id,
+        status: "ACTIVE",
+      });
+
+    if (!account) {
+      return {
+        success: false as const,
+        message:
+          "Account not found or inactive.",
+      };
+    }
+
+    /*
+     * If the destination account number
+     * belongs to an active Apex account,
+     * retain the internal recipient IDs.
+     *
+     * If no account exists, the wire remains
+     * an external wire.
+     */
+    const recipientAccount =
+      await Account.findOne({
+        accountNumber:
+          input.accountNumber,
+        status: "ACTIVE",
+      }).select(
+        "_id user accountNumber"
+      );
+
+    const fee = calculateFee(
       input.type === "DOMESTIC"
         ? "WIRE_DOMESTIC"
         : "WIRE_INTERNATIONAL"
     );
 
-  if (account.availableBalance < totalDebit) {
-    return {
-      success: false,
-      message: "Insufficient available funds.",
-    };
-  }
+    const totalDebit =
+      input.amount + fee;
 
-  const now = new Date();
+    if (
+      account.availableBalance <
+      totalDebit
+    ) {
+      return {
+        success: false as const,
+        message:
+          "Insufficient available funds.",
+      };
+    }
 
-  const effectiveDate =
-    await calculateAchEffectiveDate(now);
+    const now = new Date();
 
-  const fee = calculateFee(
-    input.type === "DOMESTIC"
-      ? "WIRE_DOMESTIC"
-      : "WIRE_INTERNATIONAL"
-  );
+    const effectiveDate =
+      await calculateAchEffectiveDate(
+        now
+      );
 
-  const reference =
-    generateReference("WT");
+    const reference =
+      generateReference("WT");
 
-  try {
-    /**
-     * IMPORTANT
-     *
+    /*
      * NO MONEY IS MOVED HERE.
      *
-     * We only create a pending ledger record.
+     * We create a pending transaction
+     * and pending wire. Settlement happens
+     * after admin approval.
      */
-
     const transaction =
       await createTransaction({
         account:
@@ -141,7 +175,8 @@ const recipientAccount =
         balanceAfter:
           account.availableBalance,
 
-        description: `Wire transfer to ${input.recipientName}`,
+        description:
+          `Wire transfer to ${input.recipientName}`,
 
         merchant:
           input.bankName,
@@ -167,13 +202,17 @@ const recipientAccount =
         accountId:
           account._id,
 
+        recipientUserId:
+          recipientAccount?.user ??
+          null,
+
+        recipientAccountId:
+          recipientAccount?._id ??
+          null,
+
         transactionId:
           transaction._id,
-recipientUserId:
-  recipientAccount?.user ?? null,
 
-recipientAccountId:
-  recipientAccount?._id ?? null,
         transactionReference:
           transaction.reference,
 
@@ -217,13 +256,18 @@ recipientAccountId:
 
         history: [
           {
-            status: "PENDING",
+            status:
+              "PENDING",
+
             changedBy:
               session.user.id,
+
             actorType:
               "CUSTOMER",
+
             note:
               "Wire transfer submitted and awaiting approval.",
+
             createdAt:
               now,
           },
@@ -239,31 +283,85 @@ recipientAccountId:
         },
       });
 
-    await createNotification({
-      user:
-        session.user.id,
+    /*
+     * Notification failure must not turn
+     * an otherwise successful wire submission
+     * into a failed submission.
+     */
+    try {
+      await createNotification({
+        user:
+          session.user.id,
 
-      title:
-        "Wire Transfer Submitted",
+        title:
+          "Wire Transfer Submitted",
 
-      message: `Your wire transfer of $${input.amount.toFixed(
-        2
-      )} has been submitted and is awaiting bank approval.`,
+        message:
+          `Your wire transfer of $${input.amount.toFixed(
+            2
+          )} has been submitted and is awaiting bank approval.`,
 
-      type: "SUCCESS",
+        type:
+          "SUCCESS",
 
-      actionUrl: `/dashboard/wires/${wire._id}`,
-    });
+        category:
+          "WIRE",
+
+        actionUrl:
+          `/dashboard/wires/${wire._id.toString()}`,
+
+        metadata: {
+          wireId:
+            wire._id.toString(),
+
+          reference,
+
+          amount:
+            input.amount,
+
+          fee,
+
+          status:
+            "PENDING",
+
+          internalRecipient:
+            Boolean(
+              recipientAccount
+            ),
+        },
+      });
+    } catch (notificationError) {
+      console.error(
+        "Wire submission notification failed:",
+        notificationError
+      );
+    }
 
     return {
-      success: true,
+      success: true as const,
+
       wireId:
         wire._id.toString(),
+
       reference,
+
+      status:
+        "PENDING" as const,
+
+      internalRecipient:
+        Boolean(
+          recipientAccount
+        ),
     };
   } catch (error) {
+    console.error(
+      "Wire transfer creation failed:",
+      error
+    );
+
     return {
-      success: false,
+      success: false as const,
+
       message:
         error instanceof Error
           ? error.message
