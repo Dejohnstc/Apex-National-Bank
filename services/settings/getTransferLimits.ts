@@ -21,7 +21,7 @@ export async function getTransferLimits(
       },
 
       WIRE: {
-        maxPerTransaction: 100000,
+        maxPerTransaction: 180000,
         dailyLimit: 250000,
         monthlyLimit: 1000000,
       },
