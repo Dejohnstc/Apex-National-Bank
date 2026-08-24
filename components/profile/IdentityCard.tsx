@@ -20,11 +20,11 @@ interface IdentityCardProps {
 
     accountStatus: string;
 
-    currency: string;
+    currency?: string | null;
 
-    availableBalance: number;
+    availableBalance?: number | null;
 
-    currentBalance: number;
+    currentBalance?: number | null;
 
     kycStatus?: string | null;
 
@@ -37,148 +37,182 @@ interface IdentityCardProps {
 export default function IdentityCard({
   profile,
 }: IdentityCardProps) {
+  /*
+   * Always fall back to USD if the account
+   * does not have a currency value.
+   */
+  const currency =
+    profile.currency || "USD";
+
+  /*
+   * Protect the UI from missing balance values.
+   */
+  const availableBalance =
+    profile.availableBalance ?? 0;
+
+  const currentBalance =
+    profile.currentBalance ?? 0;
+
   const status =
     profile.kycStatus ?? "Pending";
 
   const badgeVariant =
-  status === "VERIFIED"
-    ? "default"
-    : status === "REJECTED"
-      ? "destructive"
-      : "secondary";
+    status === "VERIFIED"
+      ? "default"
+      : status === "REJECTED"
+        ? "destructive"
+        : "secondary";
+
+  const formatter =
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    });
 
   return (
-  <Card className="border-slate-200 shadow-sm">
+    <Card className="border-slate-200 shadow-sm">
 
-    <CardHeader className="border-b bg-slate-50/70">
+      <CardHeader className="border-b bg-slate-50/70">
 
-      <CardTitle className="text-xl font-bold text-slate-900">
-        Banking Identity
-      </CardTitle>
+        <CardTitle className="text-xl font-bold text-slate-900">
+          Banking Identity
+        </CardTitle>
 
-      <CardDescription>
-        Your primary banking profile and account information.
-      </CardDescription>
+        <CardDescription>
+          Your primary banking profile and account information.
+        </CardDescription>
 
-    </CardHeader>
+      </CardHeader>
 
-    <CardContent className="space-y-5 pt-6">
+      <CardContent className="space-y-5 pt-6">
 
-      <Row
-        label="Customer ID"
-        value={profile.customerId}
-      />
+        <Row
+          label="Customer ID"
+          value={profile.customerId}
+        />
 
-      <Row
-        label="Account Number"
-        value={profile.accountNumber}
-      />
+        <Row
+          label="Account Number"
+          value={profile.accountNumber}
+        />
 
-      <Row
-        label="Routing Number"
-        value={profile.routingNumber}
-      />
+        <Row
+          label="Routing Number"
+          value={profile.routingNumber}
+        />
 
-      <Row
-        label="Account Type"
-        value={profile.accountType}
-      />
+        <Row
+          label="Account Type"
+          value={profile.accountType}
+        />
 
-      <Row
-        label="Account Status"
-        value={
-          <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
-            {profile.accountStatus}
-          </Badge>
-        }
-      />
+        <Row
+          label="Account Status"
+          value={
+            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+              {profile.accountStatus}
+            </Badge>
+          }
+        />
 
-      <Row
-        label="Currency"
-        value={profile.currency}
-      />
+        <Row
+          label="Currency"
+          value={currency}
+        />
 
-      <div className="rounded-2xl border bg-slate-50 p-5">
+        {/* Balances */}
 
-        <div className="flex items-center justify-between">
+        <div className="rounded-2xl border bg-slate-50 p-5">
 
-          <div>
+          <div className="flex items-center justify-between">
 
-            <p className="text-sm text-slate-500">
-              Available Balance
-            </p>
+            {/* Available Balance */}
 
-            <p className="mt-1 text-2xl font-bold text-emerald-700">
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: profile.currency,
-              }).format(profile.availableBalance)}
-            </p>
+            <div>
 
-          </div>
+              <p className="text-sm text-slate-500">
+                Available Balance
+              </p>
 
-          <div className="text-right">
+              <p className="mt-1 text-2xl font-bold text-emerald-700">
+                {formatter.format(
+                  availableBalance
+                )}
+              </p>
 
-            <p className="text-sm text-slate-500">
-              Current Balance
-            </p>
+            </div>
 
-            <p className="mt-1 text-xl font-semibold text-slate-900">
-              {new Intl.NumberFormat("en-US", {
-                style: "currency",
-                currency: profile.currency,
-              }).format(profile.currentBalance)}
-            </p>
+            {/* Current Balance */}
+
+            <div className="text-right">
+
+              <p className="text-sm text-slate-500">
+                Current Balance
+              </p>
+
+              <p className="mt-1 text-xl font-semibold text-slate-900">
+                {formatter.format(
+                  currentBalance
+                )}
+              </p>
+
+            </div>
 
           </div>
 
         </div>
 
-      </div>
+        {/* Identity Verification */}
 
-      <div className="flex items-center justify-between rounded-xl border bg-slate-50 px-4 py-3">
+        <div className="flex items-center justify-between rounded-xl border bg-slate-50 px-4 py-3">
 
-        <span className="text-sm text-slate-500">
-          Identity Verification
-        </span>
+          <span className="text-sm text-slate-500">
+            Identity Verification
+          </span>
 
-        <Badge variant={badgeVariant}>
-          {status}
-        </Badge>
+          <Badge variant={badgeVariant}>
+            {status}
+          </Badge>
 
-      </div>
+        </div>
 
-      <Row
-        label="Account Opened"
-        value={
-          profile.openedAt
-            ? new Date(
-                profile.openedAt
-              ).toLocaleDateString()
-            : "-"
-        }
-      />
+        {/* Account Opened */}
 
-      <Row
-        label="Member Since"
-        value={
-          profile.createdAt
-            ? new Date(
-                profile.createdAt
-              ).toLocaleDateString()
-            : "-"
-        }
-      />
+        <Row
+          label="Account Opened"
+          value={
+            profile.openedAt
+              ? new Date(
+                  profile.openedAt
+                ).toLocaleDateString()
+              : "-"
+          }
+        />
 
-    </CardContent>
+        {/* Member Since */}
 
-  </Card>
-);
+        <Row
+          label="Member Since"
+          value={
+            profile.createdAt
+              ? new Date(
+                  profile.createdAt
+                ).toLocaleDateString()
+              : "-"
+          }
+        />
+
+      </CardContent>
+
+    </Card>
+  );
 }
+
 interface RowProps {
   label: string;
   value: React.ReactNode;
 }
+
 function Row({
   label,
   value,

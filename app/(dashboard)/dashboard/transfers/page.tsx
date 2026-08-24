@@ -1,64 +1,194 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useState } from "react";
+import { auth } from "@/lib/auth";
 
-import { TransferForm } from "@/components/transfers/TransferForm";
-import { ScheduledTransferForm } from "@/components/transfers/ScheduledTransferForm";
-import ScheduledTransferList, {
-  type ScheduledTransferItem,
-} from "@/components/transfers/ScheduledTransferList";
-import CancelScheduledTransferDialog from "@/components/transfers/CancelScheduledTransferDialog";
-import { TransferHistory } from "@/components/transfers/TransferHistory";
+import { Account } from "@/models/account/Account";
+import { Transaction } from "@/models/transaction/Transaction";
 
-import type { Account, Transaction } from "@/types";
+import TransfersPageClient from "@/components/transfers/TransfersPageClient";
 
-interface Props {
-  accounts: Account[];
-  transfers: Transaction[];
-  scheduledTransfers: ScheduledTransferItem[];
-}
+import { getScheduledTransfers } from "@/services/transfer/getScheduledTransfers";
 
-export default function TransfersPageClient({
-  accounts,
-  transfers,
-  scheduledTransfers,
-}: Props) {
-  const [cancelTransfer, setCancelTransfer] =
-    useState<ScheduledTransferItem | null>(null);
+import type {
+  TransactionType,
+  TransactionDirection,
+  TransactionStatus,
+} from "@/types";
+
+export default async function TransfersPage() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  const userId = session.user.id;
+
+  /*
+   * Load active customer accounts.
+   */
+  const accounts = await Account.find({
+    user: userId,
+    status: "ACTIVE",
+  })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  /*
+   * Load internal transfer history.
+   */
+  const transfers = await Transaction.find({
+    user: userId,
+    type: "TRANSFER",
+  })
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+
+  /*
+   * Load scheduled transfers.
+   */
+  const scheduledTransfers =
+    await getScheduledTransfers(userId);
+
+  /*
+   * Serialize accounts.
+   */
+  const serializedAccounts =
+    accounts.map((account) => ({
+      _id: account._id.toString(),
+
+      user: account.user.toString(),
+
+      accountNumber:
+        account.accountNumber,
+
+      routingNumber:
+        account.routingNumber,
+
+      nickname:
+        account.nickname ?? "",
+
+      type:
+        account.type,
+
+      status:
+        account.status,
+
+      currency:
+        account.currency,
+
+      availableBalance:
+        account.availableBalance ?? 0,
+
+      currentBalance:
+        account.currentBalance ?? 0,
+
+      interestRate:
+        account.interestRate ?? 0,
+
+      overdraftLimit:
+        account.overdraftLimit ?? 0,
+
+      lastActivityAt:
+        account.lastActivityAt ?? null,
+
+      openedAt:
+        account.openedAt ?? null,
+
+      createdAt:
+        account.createdAt ?? null,
+
+      updatedAt:
+        account.updatedAt ?? null,
+    }));
+
+  /*
+   * Keep Transaction-compatible values.
+   *
+   * Dates remain Date objects instead of being
+   * converted to strings.
+   */
+  const serializedTransfers =
+    transfers.map((transfer) => ({
+      _id:
+        transfer._id.toString(),
+
+      account:
+        transfer.account.toString(),
+
+      user:
+        transfer.user.toString(),
+
+      reference:
+        transfer.reference,
+
+      type:
+        transfer.type as TransactionType,
+
+      direction:
+        transfer.direction as TransactionDirection,
+
+      status:
+        transfer.status as TransactionStatus,
+
+      amount:
+        transfer.amount,
+
+      balanceBefore:
+        transfer.balanceBefore,
+
+      balanceAfter:
+        transfer.balanceAfter,
+
+      merchant:
+        transfer.merchant ?? "",
+
+      description:
+        transfer.description ?? "",
+
+      category:
+        transfer.category ?? "",
+
+      location:
+        transfer.location ?? "",
+
+      counterpartyAccount:
+        transfer.counterpartyAccount ?? "",
+
+      counterpartyName:
+        transfer.counterpartyName ?? "",
+
+      memo:
+        transfer.memo ?? "",
+
+      currency:
+        transfer.currency,
+
+      fee:
+        transfer.fee ?? 0,
+
+      postedAt:
+        transfer.postedAt,
+
+      createdAt:
+        transfer.createdAt,
+
+      updatedAt:
+        transfer.updatedAt,
+    }));
 
   return (
-    <div className="space-y-8">
-      <TransferForm
-        accounts={accounts}
-      />
-
-      <ScheduledTransferForm
-        accounts={accounts}
-      />
-
-      <ScheduledTransferList
-        transfers={scheduledTransfers}
-        onCancel={(transfer) =>
-          setCancelTransfer(transfer)
-        }
-      />
-
-      <TransferHistory
-        transfers={transfers}
-      />
-
-      <CancelScheduledTransferDialog
-        open={!!cancelTransfer}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelTransfer(null);
-          }
-        }}
-        transfer={cancelTransfer}
-        onCancelled={() => {
-          setCancelTransfer(null);
-        }}
-      />
-    </div>
+    <TransfersPageClient
+      accounts={
+        serializedAccounts
+      }
+      transfers={
+        serializedTransfers
+      }
+      scheduledTransfers={
+        scheduledTransfers
+      }
+    />
   );
 }

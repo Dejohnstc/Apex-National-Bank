@@ -20,11 +20,11 @@ export async function getTransferLimits(
         monthlyLimit: 250000,
       },
 
-      WIRE: {
-        maxPerTransaction: 180000,
-        dailyLimit: 250000,
-        monthlyLimit: 1000000,
-      },
+     WIRE: {
+  maxPerTransaction: 200000,
+  dailyLimit: 500000,
+  monthlyLimit: 2000000,
+},
 
       ZELLE: {
         maxPerTransaction: 3500,

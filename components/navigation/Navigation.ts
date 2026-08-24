@@ -108,7 +108,11 @@ export const navigation = [
         href: "/dashboard/security",
         icon: Shield,
       },
-      
+      {
+        title: "Settings",
+        href: "/dashboard/settings",
+        icon: Settings,
+      },
     ],
   },
 

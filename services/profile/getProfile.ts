@@ -1,105 +1,77 @@
 import { connectDB } from "@/lib/db/mongodb";
 
 import { User } from "@/models/user/User";
-import { Account } from "@/models/account/Account";
 
 export async function getProfile(
   userId: string
 ) {
   await connectDB();
 
-  const profile = await User.findById(userId)
-    .select(
-      [
-        "firstName",
-        "lastName",
-        "email",
-        "phone",
-        "dateOfBirth",
-        "occupation",
-        "maritalStatus",
-        "address",
-        "city",
-        "state",
-        "postalCode",
-        "country",
-        "customerId",
-        "kycStatus",
-        "avatar",
-        "emailNotifications",
-        "smsNotifications",
-        "marketingEmails",
-        "createdAt",
-      ].join(" ")
-    )
-    .lean();
+  const profile =
+    await User.findById(userId)
+      .select(
+        [
+          "firstName",
+          "lastName",
+          "email",
+          "phone",
+          "dateOfBirth",
+          "occupation",
+          "maritalStatus",
+          "address",
+          "city",
+          "state",
+          "postalCode",
+          "country",
+          "avatar",
+          "createdAt",
+        ].join(" ")
+      )
+      .lean();
 
   if (!profile) {
     return null;
   }
 
-  const account = await Account.findOne({
-    user: profile._id,
-    type: "CHECKING",
-  }).lean();
-
   return {
-    id: profile._id.toString(),
+    id:
+      profile._id.toString(),
 
-    firstName: profile.firstName,
-    lastName: profile.lastName,
+    firstName:
+      profile.firstName,
 
-    email: profile.email,
-    phone: profile.phone,
+    lastName:
+      profile.lastName,
 
-    customerId: profile.customerId,
+    email:
+      profile.email,
 
-    occupation: profile.occupation,
-    maritalStatus: profile.maritalStatus,
+    phone:
+      profile.phone,
 
-    address: profile.address,
-    city: profile.city,
-    state: profile.state,
-    postalCode: profile.postalCode,
-    country: profile.country,
+    occupation:
+      profile.occupation,
 
-    avatar: profile.avatar,
+    maritalStatus:
+      profile.maritalStatus,
 
-    kycStatus: profile.kycStatus,
+    address:
+      profile.address,
 
-    accountNumber:
-      account?.accountNumber ?? "",
+    city:
+      profile.city,
 
-    routingNumber:
-      account?.routingNumber ?? "",
+    state:
+      profile.state,
 
-    accountType:
-      account?.type ?? "",
+    postalCode:
+      profile.postalCode,
 
-    accountStatus:
-      account?.status ?? "",
+    country:
+      profile.country,
 
-    currency:
-      account?.currency ?? "USD",
-
-    availableBalance:
-      account?.availableBalance ?? 0,
-
-    currentBalance:
-      account?.currentBalance ?? 0,
-
-    openedAt: account?.openedAt
-      ? account.openedAt.toISOString()
-      : null,
-
-    emailNotifications:
-      profile.emailNotifications ?? true,
-
-    smsNotifications:
-      profile.smsNotifications ?? false,
-
-    marketingEmails:
-      profile.marketingEmails ?? false,
+    avatar:
+      profile.avatar ?? null,
 
     dateOfBirth:
       profile.dateOfBirth

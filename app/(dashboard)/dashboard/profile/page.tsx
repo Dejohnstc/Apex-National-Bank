@@ -6,8 +6,6 @@ import { getProfile } from "@/services/profile/getProfile";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import PersonalInformationCard from "@/components/profile/PersonalInformationCard";
 import AddressCard from "@/components/profile/AddressCard";
-import PreferencesCard from "@/components/profile/PreferenceCard";
-import IdentityCard from "@/components/profile/IdentityCard";
 import AvatarUploader from "@/components/profile/AvatarUploader";
 
 export default async function ProfilePage() {
@@ -17,7 +15,8 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
-  const profile = await getProfile(session.user.id);
+  const profile =
+    await getProfile(session.user.id);
 
   if (!profile) {
     redirect("/dashboard");
@@ -25,24 +24,35 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <ProfileHeader profile={profile} />
+
+      {/* Profile Header */}
+      <ProfileHeader
+        profile={profile}
+      />
 
       <div className="grid gap-6 xl:grid-cols-3">
+
         <div className="space-y-6 xl:col-span-2">
-          <AvatarUploader profile={profile} />
-          <PersonalInformationCard profile={profile} />
-          
-          <AddressCard profile={profile} />
 
-          <PreferencesCard profile={profile} />
+          {/* Profile Picture */}
+          <AvatarUploader
+            profile={profile}
+          />
+
+          {/* Personal Information */}
+          <PersonalInformationCard
+            profile={profile}
+          />
+
+          {/* Address */}
+          <AddressCard
+            profile={profile}
+          />
+
         </div>
 
-        <div className="space-y-6">
-          
-
-          <IdentityCard profile={profile} />
-        </div>
       </div>
+
     </div>
   );
 }
