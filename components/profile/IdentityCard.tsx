@@ -1,3 +1,11 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Check,
+  Copy,
+} from "lucide-react";
+
 import {
   Card,
   CardContent,
@@ -37,6 +45,9 @@ interface IdentityCardProps {
 export default function IdentityCard({
   profile,
 }: IdentityCardProps) {
+  const [copied, setCopied] =
+    useState<string | null>(null);
+
   /*
    * Always fall back to USD if the account
    * does not have a currency value.
@@ -69,6 +80,32 @@ export default function IdentityCard({
       currency,
     });
 
+  async function copyValue(
+    value: string,
+    type: string
+  ) {
+    if (!value) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        value
+      );
+
+      setCopied(type);
+
+      setTimeout(() => {
+        setCopied(null);
+      }, 2000);
+    } catch (error) {
+      console.error(
+        "Failed to copy:",
+        error
+      );
+    }
+  }
+
   return (
     <Card className="border-slate-200 shadow-sm">
 
@@ -91,14 +128,36 @@ export default function IdentityCard({
           value={profile.customerId}
         />
 
-        <Row
+        {/* Account Number */}
+
+        <CopyRow
           label="Account Number"
           value={profile.accountNumber}
+          copied={
+            copied === "accountNumber"
+          }
+          onCopy={() =>
+            copyValue(
+              profile.accountNumber,
+              "accountNumber"
+            )
+          }
         />
 
-        <Row
+        {/* Routing Number */}
+
+        <CopyRow
           label="Routing Number"
           value={profile.routingNumber}
+          copied={
+            copied === "routingNumber"
+          }
+          onCopy={() =>
+            copyValue(
+              profile.routingNumber,
+              "routingNumber"
+            )
+          }
         />
 
         <Row
@@ -205,6 +264,61 @@ export default function IdentityCard({
       </CardContent>
 
     </Card>
+  );
+}
+
+interface CopyRowProps {
+  label: string;
+  value: string;
+  copied: boolean;
+  onCopy: () => void;
+}
+
+function CopyRow({
+  label,
+  value,
+  copied,
+  onCopy,
+}: CopyRowProps) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 last:border-0 last:pb-0">
+
+      <span className="shrink-0 text-sm font-medium text-slate-500">
+        {label}
+      </span>
+
+      <div className="flex min-w-0 items-center gap-3">
+
+        <span className="break-all text-right font-semibold text-slate-900">
+          {value || "-"}
+        </span>
+
+        {value && (
+          <button
+            type="button"
+            onClick={onCopy}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-100 hover:text-slate-900"
+            aria-label={`Copy ${label}`}
+          >
+            {copied ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="text-emerald-600">
+                  Copied
+                </span>
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5" />
+                Copy
+              </>
+            )}
+          </button>
+        )}
+
+      </div>
+
+    </div>
   );
 }
 
