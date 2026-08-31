@@ -29,90 +29,137 @@ export function TransactionDetailsSheet({
   onOpenChange,
   transaction,
 }: Props) {
-  if (!transaction) return null;
+  if (!transaction) {
+    return null;
+  }
+
+  const currency =
+    transaction.currency || "USD";
+
+  const formatter =
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+    });
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      <SheetContent
+        className="
+          w-full
+          overflow-y-auto
+          px-5
+          sm:max-w-lg
+          sm:px-6
+        "
+      >
+        {/* Header */}
+
+        <SheetHeader className="border-b pb-5">
+          <SheetTitle className="text-xl font-bold">
             Transaction Details
           </SheetTitle>
         </SheetHeader>
 
-        <div className="mt-8 space-y-6">
-          <div className="text-center">
-            <TransactionAmount
-              amount={transaction.amount}
-              direction={transaction.direction}
-              currency={transaction.currency}
-            />
+        <div className="mt-6 space-y-6">
 
-            <div className="mt-3">
-              <TransactionStatusBadge
-                status={transaction.status}
-              />
+          {/* Amount + Status */}
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+
+            <div className="text-center">
+
+              <div className="text-2xl font-bold">
+                <TransactionAmount
+                  amount={
+                    transaction.amount
+                  }
+                  direction={
+                    transaction.direction
+                  }
+                  currency={currency}
+                />
+              </div>
+
+              <div className="mt-3 flex justify-center">
+                <TransactionStatusBadge
+                  status={
+                    transaction.status
+                  }
+                />
+              </div>
+
             </div>
+
           </div>
 
           <Separator />
 
-          <Detail
-            label="Description"
-            value={transaction.description}
-          />
+          {/* Transaction information */}
 
-          <Detail
-            label="Reference"
-            value={transaction.reference}
-          />
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
-          <Detail
-            label="Counterparty"
-            value={
-              transaction.counterpartyName ||
-              "-"
-            }
-          />
-
-          <Detail
-            label="Balance After"
-            value={new Intl.NumberFormat(
-              "en-US",
-              {
-                style: "currency",
-                currency:
-                  transaction.currency,
+            <Detail
+              label="Description"
+              value={
+                transaction.description ||
+                "-"
               }
-            ).format(
-              transaction.balanceAfter
-            )}
-          />
+            />
 
-          <Detail
-            label="Fee"
-            value={new Intl.NumberFormat(
-              "en-US",
-              {
-                style: "currency",
-                currency:
-                  transaction.currency,
+            <Detail
+              label="Reference"
+              value={
+                transaction.reference ||
+                "-"
               }
-            ).format(transaction.fee)}
-          />
+              mono
+            />
 
-          <Detail
-            label="Memo"
-            value={transaction.memo || "-"}
-          />
+            <Detail
+              label="Counterparty"
+              value={
+                transaction.counterpartyName ||
+                "-"
+              }
+            />
 
-          <Detail
-            label="Date"
-            value={format(
-              new Date(transaction.postedAt),
-              "PPP p"
-            )}
-          />
+            <Detail
+              label="Balance After"
+              value={formatter.format(
+                transaction.balanceAfter
+              )}
+            />
+
+            <Detail
+              label="Fee"
+              value={formatter.format(
+                transaction.fee ?? 0
+              )}
+            />
+
+            <Detail
+              label="Memo"
+              value={
+                transaction.memo || "-"
+              }
+            />
+
+            <Detail
+              label="Date"
+              value={format(
+                new Date(
+                  transaction.postedAt
+                ),
+                "PPP p"
+              )}
+            />
+
+          </div>
+
         </div>
       </SheetContent>
     </Sheet>
@@ -122,19 +169,57 @@ export function TransactionDetailsSheet({
 interface DetailProps {
   label: string;
   value: React.ReactNode;
+  mono?: boolean;
 }
 
 function Detail({
   label,
   value,
+  mono = false,
 }: DetailProps) {
   return (
-    <div className="flex items-start justify-between gap-6">
-      <span className="text-sm text-muted-foreground">
+    <div
+      className="
+        grid
+        grid-cols-1
+        gap-2
+        border-b
+        border-slate-100
+        px-4
+        py-4
+        last:border-b-0
+        sm:grid-cols-[130px_minmax(0,1fr)]
+        sm:items-start
+        sm:gap-4
+      "
+    >
+      {/* Label */}
+
+      <span
+        className="
+          text-sm
+          font-medium
+          text-muted-foreground
+        "
+      >
         {label}
       </span>
 
-      <span className="text-right font-medium">
+      {/* Value */}
+
+      <span
+        className={`
+          min-w-0
+          break-words
+          whitespace-normal
+          text-left
+          text-sm
+          font-semibold
+          text-slate-900
+          sm:text-right
+          ${mono ? "font-mono text-xs sm:text-sm" : ""}
+        `}
+      >
         {value}
       </span>
     </div>
