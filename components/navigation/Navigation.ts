@@ -77,16 +77,7 @@ export const navigation = [
         href: "/dashboard/cards",
         icon: CreditCard,
       },
-      {
-        title: "Savings",
-        href: "/dashboard/savings",
-        icon: PiggyBank,
-      },
-      {
-        title: "Investments",
-        href: "/dashboard/investments",
-        icon: Wallet,
-      },
+
     ],
   },
 
