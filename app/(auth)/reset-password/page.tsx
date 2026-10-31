@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   Card,
   CardContent,
@@ -27,16 +27,19 @@ function ResetPasswordForm() {
   const [isError, setIsError] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // ❌ REMOVED: the useEffect that set the "invalid link" message
-  // ✅ Derived state instead:
   const noToken = !token;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    console.log("🚨 onSubmit fired. Token present:", !!token);
     setMessage("");
     setIsError(false);
 
-    if (!token) return; // safety net
+    if (!token) {
+      setIsError(true);
+      setMessage("Missing reset token. Please request a new email.");
+      return;
+    }
 
     if (password.length < 8) {
       setIsError(true);
@@ -51,6 +54,7 @@ function ResetPasswordForm() {
     }
 
     setLoading(true);
+    console.log("📡 Sending request to /api/auth/reset-password...");
 
     try {
       const response = await fetch("/api/auth/reset-password", {
@@ -59,7 +63,9 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, password }),
       });
 
+      console.log("📥 Response status:", response.status);
       const data = await response.json();
+      console.log("📥 Response body:", data);
 
       if (!response.ok || !data.success) {
         setIsError(true);
@@ -71,7 +77,8 @@ function ResetPasswordForm() {
       setIsError(false);
       setMessage(data.message || "Password updated successfully!");
       setTimeout(() => router.push("/login"), 2000);
-    } catch {
+    } catch (err) {
+      console.error("💥 Fetch failed:", err);
       setIsError(true);
       setMessage("Network error. Please check your connection and try again.");
     } finally {
@@ -109,7 +116,6 @@ function ResetPasswordForm() {
             </div>
           ) : (
             <>
-              {/* Render the "invalid link" warning directly in JSX */}
               {noToken && (
                 <div className="mb-4 text-sm p-3 rounded bg-red-50 text-red-600 border border-red-200">
                   Invalid reset link. Please request a new password reset email.
@@ -143,13 +149,12 @@ function ResetPasswordForm() {
                   />
                 </div>
 
-                <Button
-                  type="submit"
+                <SubmitButton
                   className="w-full"
                   disabled={loading || noToken}
                 >
                   {loading ? "Updating..." : "Update Password"}
-                </Button>
+                </SubmitButton>
 
                 {message && (
                   <p
