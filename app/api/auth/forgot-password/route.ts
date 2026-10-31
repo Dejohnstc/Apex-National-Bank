@@ -59,15 +59,15 @@ export async function POST(
       .update(resetToken)
       .digest("hex");
 
-    user.passwordResetToken = resetTokenHash;
-
-    user.passwordResetTokenExpires =
-      new Date(
-        Date.now() +
-          1000 * 60 * 60 // 1 hour
-      );
-
-    await user.save();
+    // FIX: Use findByIdAndUpdate to guarantee the database is updated
+    await User.findByIdAndUpdate(user._id, {
+      $set: {
+        passwordResetToken: resetTokenHash,
+        passwordResetTokenExpires: new Date(
+          Date.now() + 1000 * 60 * 60 // 1 hour
+        ),
+      },
+    });
 
     await sendPasswordResetEmail({
       email: user.email,
